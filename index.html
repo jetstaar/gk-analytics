@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>GK-Analytics · Handball Torwart</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+/* ===== Reset & Base ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1b2e;
+  --bg-deep:#081321;
+  --card:#132741;
+  --card-2:#1a3350;
+  --accent:#e8493a;
+  --accent-dim:#7a2a22;
+  --gold:#f4b942;
+  --text:#eef3fa;
+  --text-dim:#8fa3c0;
+  --line:#ffffff;
+  --border:#25436a;
+
+  /* Ampel-Skala (Save-Quote) */
+  --q-bad:#c8433a;      /* 0-33% */
+  --q-mid:#8a6a52;      /* 34-66% / wenig Daten */
+  --q-good:#2f9e6e;     /* 67-100% */
+  --q-empty:#1a2c44;    /* keine Daten */
+
+  --radius:14px;
+  --shadow:0 6px 28px rgba(0,0,0,0.45);
+}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent;
+  display:flex;flex-direction:column;height:100dvh;overflow:hidden;
+  user-select:none;-webkit-user-select:none;
+}
+
+/* ===== Header ===== */
+header{
+  padding:10px 16px;display:flex;align-items:center;justify-content:space-between;
+  background:var(--card);border-bottom:2px solid var(--accent);
+  flex-shrink:0;
+}
+header h1{font-size:17px;font-weight:800;color:var(--text);letter-spacing:-0.3px}
+header h1 small{font-size:11px;font-weight:600;color:var(--text-dim);margin-left:6px;text-transform:uppercase;letter-spacing:0.5px}
+.header-badge{
+  background:var(--accent);color:#fff;font-size:12px;font-weight:800;
+  padding:4px 12px;border-radius:20px;min-width:28px;text-align:center;
+}
+
+/* ===== Status Bar ===== */
+.status-bar{
+  display:flex;gap:10px;padding:6px 16px;background:var(--bg-deep);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+  font-size:11px;color:var(--text-dim);overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.status-bar span{white-space:nowrap}
+.status-bar .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.dot-green{background:var(--q-good)}
+.dot-gray{background:#4a5a70}
+
+/* ===== Main Content ===== */
+main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center}
+
+/* ===== Screen Container ===== */
+.screen{display:none;width:100%;max-width:480px;flex-direction:column;align-items:center;gap:8px;animation:fadeIn .25s ease}
+.screen.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== SVG Field ===== */
+.field-container{width:100%;aspect-ratio:400/460;position:relative;touch-action:manipulation}
+.field-container svg{width:100%;height:100%;display:block}
+
+/* ===== Zone Labels ===== */
+.zone-value{font-size:18px;font-weight:800;fill:#fff;pointer-events:none;font-family:inherit}
+.zone-frac{font-size:10px;font-weight:600;fill:rgba(255,255,255,0.75);pointer-events:none}
+.zone-cell{cursor:pointer;transition:opacity .15s,filter .15s}
+.zone-cell:active{opacity:.75}
+.zone-cell.selected{filter:drop-shadow(0 0 10px rgba(244,185,66,0.85))}
+.zone-letter{font-size:11px;font-weight:700;fill:rgba(255,255,255,0.55);pointer-events:none}
+
+/* ===== Step Indicator ===== */
+.step-indicator{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  font-size:12px;color:var(--text-dim);padding:4px 0;
+}
+.step-indicator .step{display:flex;align-items:center;gap:5px}
+.step .step-num{
+  width:20px;height:20px;border-radius:50%;border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--text-dim);
+}
+.step.active .step-num{border-color:var(--gold);color:var(--gold);background:rgba(244,185,66,0.15)}
+.step.active{color:var(--gold)}
+.step.done .step-num{border-color:var(--q-good);color:var(--q-good);background:rgba(47,158,110,0.15)}
+.step.done{color:var(--q-good)}
+
+/* ===== Outcome Buttons ===== */
+.outcome-row{display:flex;gap:10px;width:100%;padding:4px 0}
+.outcome-btn{
+  flex:1;padding:13px;border-radius:var(--radius);border:none;font-size:15px;font-weight:800;
+  cursor:pointer;transition:all .15s;touch-action:manipulation;letter-spacing:0.3px;
+}
+.outcome-btn:active{transform:scale(0.96)}
+.btn-save{background:linear-gradient(135deg,#2f9e6e,#1f7550);color:#fff}
+.btn-goal{background:linear-gradient(135deg,#e8493a,#b83023);color:#fff}
+.btn-save.selected{box-shadow:0 0 0 3px #fff,0 0 20px rgba(47,158,110,0.6)}
+.btn-goal.selected{box-shadow:0 0 0 3px #fff,0 0 20px rgba(232,73,58,0.6)}
+.btn-save:disabled,.btn-goal:disabled{opacity:.3;transform:none}
+
+/* ===== Action Row ===== */
+.action-row{display:flex;gap:10px;width:100%;padding:4px 0 8px}
+.action-row button{
+  flex:1;padding:12px;border-radius:var(--radius);font-size:14px;font-weight:700;
+  border:1px solid transparent;cursor:pointer;transition:all .15s;touch-action:manipulation;
+}
+.btn-reset{background:transparent;border-color:var(--border);color:var(--text-dim)}
+.btn-reset:active{background:rgba(255,255,255,0.05)}
+.btn-save-entry{background:var(--gold);color:#1a1200}
+.btn-save-entry:active{transform:scale(0.96)}
+.btn-save-entry:disabled{opacity:.3;transform:none}
+
+/* ===== Toast / Feedback ===== */
+.toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  background:var(--card-2);color:var(--text);padding:10px 20px;border-radius:20px;
+  font-size:14px;font-weight:600;box-shadow:var(--shadow);
+  opacity:0;transition:opacity .3s ease,transform .3s ease;pointer-events:none;
+  border:1px solid var(--border);z-index:100;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.success{border-color:var(--q-good)}
+.toast.error{border-color:var(--accent)}
+
+/* ===== Efficiency Footer Bar ===== */
+.eff-bar{
+  width:100%;background:var(--card-2);border-radius:12px;padding:10px 16px;
+  display:flex;align-items:center;justify-content:space-between;
+  border:1px solid var(--border);margin:4px 0;
+}
+.eff-bar .eff-label{font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.4px}
+.eff-bar .eff-value{display:flex;align-items:baseline;gap:8px}
+.eff-bar .eff-pct{font-size:22px;font-weight:900;color:var(--gold)}
+.eff-bar .eff-frac{font-size:13px;color:var(--text-dim);font-weight:600}
+
+/* ===== Stats Summary (Eingabe-Screen Mini-Stats) ===== */
+.stats-summary{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:100%;padding:8px 0;
+}
+.stat-card{
+  background:var(--card);border-radius:10px;padding:10px 8px;text-align:center;
+  border:1px solid var(--border);
+}
+.stat-card .stat-value{font-size:22px;font-weight:900;color:var(--gold)}
+.stat-card .stat-label{font-size:11px;color:var(--text-dim);margin-top:2px;font-weight:600}
+.stat-card .stat-value.goals{color:var(--accent)}
+.stat-card .stat-value.saves{color:var(--q-good)}
+
+/* ===== Tab Bar ===== */
+.tab-bar{
+  display:flex;background:var(--card);border-top:1px solid var(--border);
+  flex-shrink:0;
+}
+.tab-btn{
+  flex:1;padding:8px 4px 10px;background:none;border:none;
+  color:var(--text-dim);font-size:11px;font-weight:700;cursor:pointer;
+  transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:2px;
+  touch-action:manipulation;
+}
+.tab-btn .tab-icon{font-size:20px;line-height:1}
+.tab-btn.active{color:var(--gold);background:rgba(244,185,66,0.08)}
+.tab-btn:active{opacity:.7}
+
+/* ===== Chart Screen ===== */
+.chart-wrapper{width:100%;padding:8px 0}
+.chart-wrapper canvas{width:100%!important;max-height:220px}
+.chart-header{font-size:13px;font-weight:700;color:var(--text-dim);margin-bottom:6px;text-align:center;text-transform:uppercase;letter-spacing:0.4px}
+
+/* ===== History List ===== */
+.history-list{width:100%;padding:4px 0}
+.history-item{
+  display:flex;align-items:center;gap:8px;padding:8px 12px;
+  background:var(--card);border-radius:8px;margin-bottom:4px;
+  border-left:3px solid var(--text-dim);font-size:13px;
+}
+.history-item.saved{border-left-color:var(--q-good)}
+.history-item.goal{border-left-color:var(--accent)}
+.history-item .h-icon{font-size:18px;width:24px;text-align:center}
+.history-item .h-info{flex:1}
+.history-item .h-info strong{display:inline-block;min-width:60px}
+.history-item .h-time{color:var(--text-dim);font-size:11px}
+.history-empty{text-align:center;color:var(--text-dim);padding:24px;font-size:14px;font-style:italic}
+
+/* ===== Scroll helpers ===== */
+.scroll-area{width:100%;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+.title-row{width:100%;display:flex;align-items:center;justify-content:space-between;padding:2px 2px 0}
+.title-row .title-main{font-size:16px;font-weight:800;color:var(--text)}
+.title-row .title-close{color:var(--text-dim);font-size:20px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <h1>GK-Analytics <small>B-Jugend</small></h1>
+  <span class="header-badge" id="shotCounter">0</span>
+</header>
+
+<!-- Status -->
+<div class="status-bar">
+  <span><span class="dot dot-green"></span>Bereit</span>
+  <span id="statusSession">Heute · 0 Shots</span>
+</div>
+
+<!-- Main -->
+<main>
+  <!-- ===== SCREEN 1: INPUT ===== -->
+  <div class="screen active" id="screenInput">
+    <!-- Step indicator -->
+    <div class="step-indicator">
+      <span class="step active" id="step1"><span class="step-num">1</span>Wurfzone</span>
+      <span style="color:var(--border)">→</span>
+      <span class="step" id="step2"><span class="step-num">2</span>Torzone</span>
+      <span style="color:var(--border)">→</span>
+      <span class="step" id="step3"><span class="step-num">3</span>Ausgang</span>
+    </div>
+
+    <!-- Field SVG -->
+    <div class="field-container" id="fieldContainer">
+      <svg viewBox="0 0 400 460" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="netPattern" width="10" height="10" patternUnits="userSpaceOnUse">
+            <path d="M0,0 L10,10 M10,0 L0,10" stroke="rgba(255,255,255,0.10)" stroke-width="0.6"/>
+          </pattern>
+          <pattern id="postStripes" width="16" height="16" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+            <rect width="16" height="8" fill="var(--accent)"/>
+            <rect y="8" width="16" height="8" fill="#fff"/>
+          </pattern>
+        </defs>
+
+        <!-- Hintergrund -->
+        <rect width="400" height="460" fill="var(--bg)" rx="10"/>
+
+        <!-- ===== TOR (3x2m B-Jugend, rot-weiß gestreifter Rahmen) ===== -->
+        <rect x="34" y="16" width="332" height="176" fill="url(#postStripes)" rx="14"/>
+        <rect x="46" y="28" width="308" height="152" fill="url(#netPattern)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <rect x="46" y="28" width="308" height="152" fill="none" stroke="#fff" stroke-width="2"/>
+
+        <!-- === TORZONEN (9 Zellen, 3x3) === -->
+        <g id="targetZones">
+          <!-- generated by JS-independent static grid, colored dynamically -->
+          <rect x="46"  y="28"  width="103" height="50.6" class="zone-cell target-zone" data-zone="1" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+          <rect x="149" y="28"  width="102" height="50.6" class="zone-cell target-zone" data-zone="2" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+          <rect x="251" y="28"  width="103" height="50.6" class="zone-cell target-zone" data-zone="3" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+
+          <rect x="46"  y="78.6" width="103" height="50.6" class="zone-cell target-zone" data-zone="4" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+          <rect x="149" y="78.6" width="102" height="50.6" class="zone-cell target-zone" data-zone="5" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+          <rect x="251" y="78.6" width="103" height="50.6" class="zone-cell target-zone" data-zone="6" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+
+          <rect x="46"  y="129.2" width="103" height="50.6" class="zone-cell target-zone" data-zone="7" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+          <rect x="149" y="129.2" width="102" height="50.6" class="zone-cell target-zone" data-zone="8" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+          <rect x="251" y="129.2" width="103" height="50.6" class="zone-cell target-zone" data-zone="9" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+        </g>
+        <g id="targetLabels" style="pointer-events:none">
+          <text x="97"  y="58"  class="zone-value" data-zlabel="1" text-anchor="middle">1</text>
+          <text x="200" y="58"  class="zone-value" data-zlabel="2" text-anchor="middle">2</text>
+          <text x="302" y="58"  class="zone-value" data-zlabel="3" text-anchor="middle">3</text>
+          <text x="97"  y="109" class="zone-value" data-zlabel="4" text-anchor="middle">4</text>
+          <text x="200" y="109" class="zone-value" data-zlabel="5" text-anchor="middle">5</text>
+          <text x="302" y="109" class="zone-value" data-zlabel="6" text-anchor="middle">6</text>
+          <text x="97"  y="159" class="zone-value" data-zlabel="7" text-anchor="middle">7</text>
+          <text x="200" y="159" class="zone-value" data-zlabel="8" text-anchor="middle">8</text>
+          <text x="302" y="159" class="zone-value" data-zlabel="9" text-anchor="middle">9</text>
+        </g>
+
+        <!-- ===== TORRAUM (blauer Halbkreis, No-Mans-Land) ===== -->
+        <path d="M 20 192 Q 200 300 380 192 L 380 192 Q 200 260 20 192 Z" fill="#2f5fa8" stroke="var(--bg)" stroke-width="3"/>
+
+        <!-- ===== WURFZONEN (Kreisring-Sektoren, 6 Zonen A-F, Zentrum Tormitte) ===== -->
+        <g id="shooterZones">
+          <path d="M 139.7 214.3 L 70.2 242.4 A 140 140 0 0 1 146.0 319.2 L 175.0 250.0 A 65 65 0 0 0 139.7 214.3 Z" class="zone-cell shooter-zone" data-zone="A" stroke="var(--bg)" stroke-width="2"/>
+          <path d="M 175.0 250.0 L 146.0 319.2 A 140 140 0 0 1 254.0 319.2 L 225.0 250.0 A 65 65 0 0 0 175.0 250.0 Z" class="zone-cell shooter-zone" data-zone="B" stroke="var(--bg)" stroke-width="2"/>
+          <path d="M 225.0 250.0 L 254.0 319.2 A 140 140 0 0 1 329.8 242.4 L 260.3 214.3 A 65 65 0 0 0 225.0 250.0 Z" class="zone-cell shooter-zone" data-zone="C" stroke="var(--bg)" stroke-width="2"/>
+          <path d="M 70.2 242.4 L 0.7 270.5 A 215 215 0 0 1 117.1 388.4 L 146.0 319.2 A 140 140 0 0 0 70.2 242.4 Z" class="zone-cell shooter-zone" data-zone="D" stroke="var(--bg)" stroke-width="2"/>
+          <path d="M 146.0 319.2 L 117.1 388.4 A 215 215 0 0 1 282.9 388.4 L 254.0 319.2 A 140 140 0 0 0 146.0 319.2 Z" class="zone-cell shooter-zone" data-zone="E" stroke="var(--bg)" stroke-width="2"/>
+          <path d="M 254.0 319.2 L 282.9 388.4 A 215 215 0 0 1 399.3 270.5 L 329.8 242.4 A 140 140 0 0 0 254.0 319.2 Z" class="zone-cell shooter-zone" data-zone="F" stroke="var(--bg)" stroke-width="2"/>
+        </g>
+
+        <!-- 7m Marker -->
+        <rect x="176" y="245" width="48" height="20" rx="10" fill="var(--card-2)" stroke="var(--border)" stroke-width="1"/>
+        <text x="200" y="259" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" style="pointer-events:none">7m</text>
+
+        <g style="pointer-events:none">
+          <text x="127" y="262" class="zone-letter" text-anchor="middle">A</text>
+          <text x="200" y="292" class="zone-letter" text-anchor="middle">B</text>
+          <text x="273" y="262" class="zone-letter" text-anchor="middle">C</text>
+          <text x="74" y="315" class="zone-letter" text-anchor="middle">D</text>
+          <text x="200" y="367" class="zone-letter" text-anchor="middle">E</text>
+          <text x="326" y="315" class="zone-letter" text-anchor="middle">F</text>
+        </g>
+
+        <text x="14" y="450" fill="var(--text-dim)" font-size="9">Wurfzonen: A/B/C nah (6-9m) · D/E/F fern (&gt;9m) · 7m mittig</text>
+      </svg>
+    </div>
+
+    <!-- Selektion Anzeige -->
+    <div style="width:100%;padding:2px 0 4px;text-align:center;font-size:13px;color:var(--text-dim);min-height:20px" id="selectionDisplay">
+      👆 Tippe Wurfzone → Torzone → Ausgang
+    </div>
+
+    <!-- Outcome Buttons -->
+    <div class="outcome-row" id="outcomeRow">
+      <button class="outcome-btn btn-save" id="btnSave" disabled>🧤 GEHALTEN</button>
+      <button class="outcome-btn btn-goal" id="btnGoal" disabled>⚽ TOR</button>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-row">
+      <button class="btn-reset" id="btnReset">↺ Zurücksetzen</button>
+      <button class="btn-save-entry" id="btnSubmit" disabled>✓ Shot eintragen</button>
+    </div>
+
+    <!-- Mini Stats -->
+    <div class="stats-summary" id="statsSummary">
+      <div class="stat-card"><div class="stat-value saves" id="statSaves">0</div><div class="stat-label">Gehalten</div></div>
+      <div class="stat-card"><div class="stat-value goals" id="statGoals">0</div><div class="stat-label">Tore</div></div>
+      <div class="stat-card"><div class="stat-value" id="statPct">—%</div><div class="stat-label">Save%</div></div>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN 2: STATS ===== -->
+  <div class="screen" id="screenStats">
+    <div class="scroll-area">
+      <div class="title-row">
+        <span class="title-main">Statistiken</span>
+      </div>
+
+      <!-- Haupt-Heatmap: Tor + Wurfzonen (wie Referenz) -->
+      <div class="field-container" id="statsFieldContainer" style="margin-top:6px">
+        <svg viewBox="0 0 400 460" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="postStripes2" width="16" height="16" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+              <rect width="16" height="8" fill="var(--accent)"/>
+              <rect y="8" width="16" height="8" fill="#fff"/>
+            </pattern>
+          </defs>
+          <rect width="400" height="460" fill="var(--bg)" rx="10"/>
+          <rect x="34" y="16" width="332" height="176" fill="url(#postStripes2)" rx="14"/>
+          <rect x="46" y="28" width="308" height="152" fill="var(--bg-deep)" stroke="#fff" stroke-width="2"/>
+
+          <g id="statsTargetZones">
+            <rect x="46"  y="28"   width="103" height="50.6" class="stat-zone" data-zone="1" stroke="var(--bg)" stroke-width="2"/>
+            <rect x="149" y="28"   width="102" height="50.6" class="stat-zone" data-zone="2" stroke="var(--bg)" stroke-width="2"/>
+            <rect x="251" y="28"   width="103" height="50.6" class="stat-zone" data-zone="3" stroke="var(--bg)" stroke-width="2"/>
+            <rect x="46"  y="78.6" width="103" height="50.6" class="stat-zone" data-zone="4" stroke="var(--bg)" stroke-width="2"/>
+            <rect x="149" y="78.6" width="102" height="50.6" class="stat-zone" data-zone="5" stroke="var(--bg)" stroke-width="2"/>
+            <rect x="251" y="78.6" width="103" height="50.6" class="stat-zone" data-zone="6" stroke="var(--bg)" stroke-width="2"/>
+            <rect x="46"  y="129.2" width="103" height="50.6" class="stat-zone" data-zone="7" stroke="var(--bg)" stroke-width="2"/>
+            <rect x="149" y="129.2" width="102" height="50.6" class="stat-zone" data-zone="8" stroke="var(--bg)" stroke-width="2"/>
+            <rect x="251" y="129.2" width="103" height="50.6" class="stat-zone" data-zone="9" stroke="var(--bg)" stroke-width="2"/>
+          </g>
+          <g id="statsTargetLabels" style="pointer-events:none">
+            <text x="97"  y="50" class="zone-value" text-anchor="middle" data-zsave="1"></text>
+            <text x="97"  y="66" class="zone-frac" text-anchor="middle" data-zfrac="1"></text>
+            <text x="200" y="50" class="zone-value" text-anchor="middle" data-zsave="2"></text>
+            <text x="200" y="66" class="zone-frac" text-anchor="middle" data-zfrac="2"></text>
+            <text x="302" y="50" class="zone-value" text-anchor="middle" data-zsave="3"></text>
+            <text x="302" y="66" class="zone-frac" text-anchor="middle" data-zfrac="3"></text>
+            <text x="97"  y="100" class="zone-value" text-anchor="middle" data-zsave="4"></text>
+            <text x="97"  y="116" class="zone-frac" text-anchor="middle" data-zfrac="4"></text>
+            <text x="200" y="100" class="zone-value" text-anchor="middle" data-zsave="5"></text>
+            <text x="200" y="116" class="zone-frac" text-anchor="middle" data-zfrac="5"></text>
+            <text x="302" y="100" class="zone-value" text-anchor="middle" data-zsave="6"></text>
+            <text x="302" y="116" class="zone-frac" text-anchor="middle" data-zfrac="6"></text>
+            <text x="97"  y="150" class="zone-value" text-anchor="middle" data-zsave="7"></text>
+            <text x="97"  y="166" class="zone-frac" text-anchor="middle" data-zfrac="7"></text>
+            <text x="200" y="150" class="zone-value" text-anchor="middle" data-zsave="8"></text>
+            <text x="200" y="166" class="zone-frac" text-anchor="middle" data-zfrac="8"></text>
+            <text x="302" y="150" class="zone-value" text-anchor="middle" data-zsave="9"></text>
+            <text x="302" y="166" class="zone-frac" text-anchor="middle" data-zfrac="9"></text>
+          </g>
+
+          <path d="M 20 192 Q 200 300 380 192 L 380 192 Q 200 260 20 192 Z" fill="#2f5fa8" stroke="var(--bg)" stroke-width="3"/>
+
+          <g id="statsShooterZones">
+            <path d="M 139.7 214.3 L 70.2 242.4 A 140 140 0 0 1 146.0 319.2 L 175.0 250.0 A 65 65 0 0 0 139.7 214.3 Z" class="stat-zone" data-zone="A" stroke="var(--bg)" stroke-width="2"/>
+            <path d="M 175.0 250.0 L 146.0 319.2 A 140 140 0 0 1 254.0 319.2 L 225.0 250.0 A 65 65 0 0 0 175.0 250.0 Z" class="stat-zone" data-zone="B" stroke="var(--bg)" stroke-width="2"/>
+            <path d="M 225.0 250.0 L 254.0 319.2 A 140 140 0 0 1 329.8 242.4 L 260.3 214.3 A 65 65 0 0 0 225.0 250.0 Z" class="stat-zone" data-zone="C" stroke="var(--bg)" stroke-width="2"/>
+            <path d="M 70.2 242.4 L 0.7 270.5 A 215 215 0 0 1 117.1 388.4 L 146.0 319.2 A 140 140 0 0 0 70.2 242.4 Z" class="stat-zone" data-zone="D" stroke="var(--bg)" stroke-width="2"/>
+            <path d="M 146.0 319.2 L 117.1 388.4 A 215 215 0 0 1 282.9 388.4 L 254.0 319.2 A 140 140 0 0 0 146.0 319.2 Z" class="stat-zone" data-zone="E" stroke="var(--bg)" stroke-width="2"/>
+            <path d="M 254.0 319.2 L 282.9 388.4 A 215 215 0 0 1 399.3 270.5 L 329.8 242.4 A 140 140 0 0 0 254.0 319.2 Z" class="stat-zone" data-zone="F" stroke="var(--bg)" stroke-width="2"/>
+          </g>
+
+          <rect x="176" y="245" width="48" height="20" rx="10" fill="var(--card-2)" stroke="var(--border)" stroke-width="1"/>
+          <text x="200" y="259" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" style="pointer-events:none">7m</text>
+
+          <g id="statsShooterLabels" style="pointer-events:none">
+            <text x="127" y="258" class="zone-value" text-anchor="middle" font-size="13" data-zsave="A"></text>
+            <text x="127" y="272" class="zone-frac" text-anchor="middle" data-zfrac="A"></text>
+            <text x="200" y="288" class="zone-value" text-anchor="middle" font-size="13" data-zsave="B"></text>
+            <text x="200" y="302" class="zone-frac" text-anchor="middle" data-zfrac="B"></text>
+            <text x="273" y="258" class="zone-value" text-anchor="middle" font-size="13" data-zsave="C"></text>
+            <text x="273" y="272" class="zone-frac" text-anchor="middle" data-zfrac="C"></text>
+            <text x="74" y="311" class="zone-value" text-anchor="middle" font-size="13" data-zsave="D"></text>
+            <text x="74" y="325" class="zone-frac" text-anchor="middle" data-zfrac="D"></text>
+            <text x="200" y="363" class="zone-value" text-anchor="middle" font-size="13" data-zsave="E"></text>
+            <text x="200" y="377" class="zone-frac" text-anchor="middle" data-zfrac="E"></text>
+            <text x="326" y="311" class="zone-value" text-anchor="middle" font-size="13" data-zsave="F"></text>
+            <text x="326" y="325" class="zone-frac" text-anchor="middle" data-zfrac="F"></text>
+          </g>
+
+          <path d="M 40 410 Q 200 320 360 410" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" stroke-dasharray="5,4"/>
+        </svg>
+      </div>
+
+      <!-- Effizienz Fußzeile -->
+      <div class="eff-bar">
+        <span class="eff-label">Effizienz Torwart</span>
+        <span class="eff-value">
+          <span class="eff-pct" id="effPct">—%</span>
+          <span class="eff-frac" id="effFrac">0/0</span>
+        </span>
+      </div>
+
+      <div class="chart-header" style="margin-top:10px">Torzonen-Verteilung</div>
+      <div class="chart-wrapper"><canvas id="chartZones"></canvas></div>
+
+      <div class="chart-header" style="margin-top:12px">Letzte Shots</div>
+      <div class="history-list" id="historyList">
+        <div class="history-empty">Noch keine Shots erfasst</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Tab Bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-screen="screenInput">
+    <span class="tab-icon">🎯</span> Erfassen
+  </button>
+  <button class="tab-btn" data-screen="screenStats">
+    <span class="tab-icon">📊</span> Auswertung
+  </button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================
+   GK-Analytics – v0.2 (Redesign: Navy/Rot, Referenz-Layout)
+   ===================================================== */
+
+// ---- State ----
+const state = {
+  shots: [],
+  step: 1,               // 1=shooter, 2=target, 3=outcome
+  shooterZone: null,      // 'A'-'F'
+  targetZone: null,       // 1-9
+  outcome: null,          // 'saved' | 'goal'
+};
+
+// ---- DOM refs ----
+const $ = id => document.getElementById(id);
+const selDisplay = $('selectionDisplay');
+const btnSave = $('btnSave'), btnGoal = $('btnGoal'), btnSubmit = $('btnSubmit'), btnReset = $('btnReset');
+const statSaves = $('statSaves'), statGoals = $('statGoals'), statPct = $('statPct');
+const toast = $('toast');
+const shotCounter = $('shotCounter');
+
+// ---- Ampel-Farbe nach Save-Quote ----
+function qualityColor(saves, total){
+  if(total === 0) return 'var(--q-empty)';
+  const ratio = saves / total;
+  if(ratio >= 0.67) return 'var(--q-good)';
+  if(ratio >= 0.34) return 'var(--q-mid)';
+  return 'var(--q-bad)';
+}
+
+// ---- Toast ----
+let toastTimer;
+function showToast(msg, type=''){
+  toast.textContent = msg;
+  toast.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+// ---- Zone selection (SVG click, Eingabe-Screen) ----
+document.querySelectorAll('#screenInput .zone-cell').forEach(el => {
+  el.addEventListener('click', function(e){
+    const isShooter = this.classList.contains('shooter-zone');
+    const isTarget = this.classList.contains('target-zone');
+    const zone = this.dataset.zone;
+
+    if(isShooter && state.step === 1){
+      clearSelection();
+      state.shooterZone = zone;
+      highlightShooter(zone);
+      state.step = 2;
+      updateSteps();
+      selDisplay.textContent = `📍 Wurfzone ${zone} gewählt — jetzt Torzone tippen`;
+      return;
+    }
+
+    if(isTarget && state.step === 2){
+      clearSelection();
+      state.targetZone = parseInt(zone);
+      this.classList.add('selected');
+      state.step = 3;
+      updateSteps();
+      enableOutcome(true);
+      selDisplay.textContent = `🎯 Wurf ${state.shooterZone} → Torzone ${zone} — Ausgang wählen`;
+      return;
+    }
+
+    if(state.step === 3 && isShooter){
+      resetToStep(1);
+      state.shooterZone = zone;
+      highlightShooter(zone);
+      state.step = 2;
+      updateSteps();
+      selDisplay.textContent = `📍 Wurfzone ${zone} gewählt — jetzt Torzone tippen`;
+    }
+  });
+});
+
+function highlightShooter(zone){
+  document.querySelectorAll('#screenInput .shooter-zone').forEach(el => {
+    const z = el.dataset.zone;
+    el.classList.toggle('selected', z === zone);
+  });
+}
+
+// ---- Outcome Buttons ----
+btnSave.addEventListener('click', () => selectOutcome('saved'));
+btnGoal.addEventListener('click', () => selectOutcome('goal'));
+
+function selectOutcome(val){
+  if(state.step < 3) return;
+  state.outcome = val;
+  btnSave.classList.toggle('selected', val === 'saved');
+  btnGoal.classList.toggle('selected', val === 'goal');
+  btnSubmit.disabled = false;
+  const label = val === 'saved' ? '🧤 Gehalten' : '⚽ Tor';
+  selDisplay.textContent = `✅ ${label} — jetzt eintragen`;
+}
+
+function enableOutcome(en){
+  btnSave.disabled = !en;
+  btnGoal.disabled = !en;
+}
+
+// ---- Submit ----
+btnSubmit.addEventListener('click', () => {
+  if(!state.shooterZone || !state.targetZone || !state.outcome) return;
+
+  const shot = {
+    id: Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    shooterZone: state.shooterZone,
+    targetZone: state.targetZone,
+    outcome: state.outcome,
+    timestamp: new Date().toISOString(),
+  };
+  state.shots.push(shot);
+
+  updateStats();
+  showToast(
+    shot.outcome === 'saved' ? '🧤 Gehalten!' : '⚽ Tor notiert',
+    shot.outcome === 'saved' ? 'success' : 'error'
+  );
+
+  fullReset();
+});
+
+// ---- Reset ----
+btnReset.addEventListener('click', fullReset);
+
+function resetToStep(s){
+  clearSelection();
+  state.step = s;
+  if(s <= 1) { state.shooterZone = null; state.targetZone = null; }
+  if(s <= 2) { state.outcome = null; enableOutcome(false); }
+  btnSubmit.disabled = true;
+  updateSteps();
+  selDisplay.textContent = '👆 Tippe Wurfzone → Torzone → Ausgang';
+}
+
+function fullReset(){
+  clearSelection();
+  state.shooterZone = null;
+  state.targetZone = null;
+  state.outcome = null;
+  state.step = 1;
+  enableOutcome(false);
+  btnSubmit.disabled = true;
+  btnSave.classList.remove('selected');
+  btnGoal.classList.remove('selected');
+  updateSteps();
+  selDisplay.textContent = '👆 Tippe Wurfzone → Torzone → Ausgang';
+}
+
+function clearSelection(){
+  document.querySelectorAll('#screenInput .zone-cell.selected').forEach(el => el.classList.remove('selected'));
+}
+
+// ---- Steps UI ----
+function updateSteps(){
+  [1,2,3].forEach(i => {
+    const el = $('step'+i);
+    el.classList.remove('active','done');
+    if(state.step === i) el.classList.add('active');
+    else if(state.step > i) el.classList.add('done');
+  });
+}
+
+// ---- Stats ----
+function updateStats(){
+  const total = state.shots.length;
+  const saves = state.shots.filter(s => s.outcome === 'saved').length;
+  const goals = state.shots.filter(s => s.outcome === 'goal').length;
+  const pct = total > 0 ? (saves / total * 100).toFixed(1) : '—';
+
+  shotCounter.textContent = total;
+  statSaves.textContent = saves;
+  statGoals.textContent = goals;
+  statPct.textContent = total > 0 ? pct + '%' : '—%';
+  $('statusSession').textContent = `Heute · ${total} Shot${total !== 1 ? 's' : ''}`;
+
+  updateEffBar(saves, total);
+  updateFieldHeatmap();
+  updateHistory();
+  updateChart();
+}
+
+function updateEffBar(saves, total){
+  const pct = total > 0 ? Math.round(saves/total*100) : null;
+  $('effPct').textContent = pct === null ? '—%' : pct + '%';
+  $('effFrac').textContent = `${saves}/${total}`;
+}
+
+// ---- Feld-Heatmap (Torzonen + Wurfzonen, im Stats-Screen) ----
+function updateFieldHeatmap(){
+  // Torzonen 1-9
+  for(let z=1; z<=9; z++){
+    const shots = state.shots.filter(s => s.targetZone === z);
+    const total = shots.length;
+    const saves = shots.filter(s => s.outcome === 'saved').length;
+    const cell = document.querySelector(`#statsTargetZones .stat-zone[data-zone="${z}"]`);
+    if(cell) cell.style.fill = qualityColor(saves, total);
+    const valEl = document.querySelector(`[data-zsave="${z}"]`);
+    const fracEl = document.querySelector(`[data-zfrac="${z}"]`);
+    if(valEl) valEl.textContent = total > 0 ? Math.round(saves/total*100) + '%' : '–';
+    if(fracEl) fracEl.textContent = total > 0 ? `${saves}/${total}` : '';
+  }
+  // Wurfzonen A-F
+  ['A','B','C','D','E','F'].forEach(z => {
+    const shots = state.shots.filter(s => s.shooterZone === z);
+    const total = shots.length;
+    const saves = shots.filter(s => s.outcome === 'saved').length;
+    const cell = document.querySelector(`#statsShooterZones .stat-zone[data-zone="${z}"]`);
+    if(cell) cell.style.fill = qualityColor(saves, total);
+    const valEl = document.querySelector(`#statsShooterLabels [data-zsave="${z}"]`);
+    const fracEl = document.querySelector(`#statsShooterLabels [data-zfrac="${z}"]`);
+    if(valEl) valEl.textContent = total > 0 ? Math.round(saves/total*100) + '%' : '';
+    if(fracEl) fracEl.textContent = total > 0 ? `${saves}/${total}` : '';
+  });
+  // Grund-Füllung leerer Zonen im Eingabe-Screen bleibt unverändert (dezent, non-data)
+}
+
+// ---- History ----
+function updateHistory(){
+  const list = $('historyList');
+  if(state.shots.length === 0){
+    list.innerHTML = '<div class="history-empty">Noch keine Shots erfasst</div>';
+    return;
+  }
+  const recent = [...state.shots].reverse().slice(0, 20);
+  list.innerHTML = recent.map(s => {
+    const cls = s.outcome === 'saved' ? 'saved' : 'goal';
+    const icon = s.outcome === 'saved' ? '🧤' : '⚽';
+    const label = s.outcome === 'saved' ? 'Gehalten' : 'Tor';
+    const t = new Date(s.timestamp);
+    const time = t.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+    return `<div class="history-item ${cls}">
+      <span class="h-icon">${icon}</span>
+      <span class="h-info"><strong>${s.shooterZone}→${s.targetZone}</strong> ${label}</span>
+      <span class="h-time">${time}</span>
+    </div>`;
+  }).join('');
+}
+
+// ---- Chart ----
+let chartInstance = null;
+function updateChart(){
+  const ctx = $('chartZones').getContext('2d');
+  const labels = ['1','2','3','4','5','6','7','8','9'];
+  const saves = labels.map((_,i) => state.shots.filter(s => s.targetZone === i+1 && s.outcome === 'saved').length);
+  const goals = labels.map((_,i) => state.shots.filter(s => s.targetZone === i+1 && s.outcome === 'goal').length);
+
+  if(chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '🧤 Gehalten', data: saves, backgroundColor: 'rgba(47,158,110,0.8)', borderRadius: 4 },
+        { label: '⚽ Tore', data: goals, backgroundColor: 'rgba(232,73,58,0.8)', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#8fa3c0', font: { size: 11 } } }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Torzone', color: '#8fa3c0', font: { size: 10 } },
+             ticks: { color: '#8fa3c0' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { beginAtZero: true, title: { display: true, text: 'Anzahl', color: '#8fa3c0', font: { size: 10 } },
+             ticks: { color: '#8fa3c0', stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+}
+
+// ---- Tab Switching ----
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    $('screen' + this.dataset.screen.slice(6)).classList.add('active');
+    if(this.dataset.screen === 'screenStats'){
+      updateStats();
+    }
+  });
+});
+
+// ---- Init: leere Zonen im Eingabe-Screen dezent einfärben ----
+document.querySelectorAll('#screenInput .target-zone').forEach(el => el.style.fill = 'var(--q-empty)');
+document.querySelectorAll('#screenInput .shooter-zone').forEach(el => el.style.fill = 'var(--q-empty)');
+
+updateSteps();
+updateStats();
+</script>
+</body>
+</html>
