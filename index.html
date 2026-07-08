@@ -781,7 +781,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')$('legendMask').clas
 document.querySelectorAll('#screenInput .target-zone').forEach(el=>el.style.fill='var(--q-empty)');
 document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>el.style.fill='var(--q-empty)');
 renderSessionList();
-if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{r.update()}).catch(()=>{});
 updateSyncStatus(navigator.onLine);
 window.addEventListener('online',()=>updateSyncStatus(true));
 window.addEventListener('offline',()=>updateSyncStatus(false));
