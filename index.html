@@ -1,1136 +1,762 @@
 <!DOCTYPE html>
-<html lang="de">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>GK-Analytics · Handball Torwart</title>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="GK-Analytics">
-<meta name="theme-color" content="#e8493a">
+<html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>GK-Analytics · Handball Torwart</title><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GK-Analytics"><meta name="theme-color" content="#e8493a">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
-/* ===== Reset & Base ===== */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0d1b2e;
-  --bg-deep:#081321;
-  --card:#132741;
-  --card-2:#1a3350;
-  --accent:#e8493a;
-  --accent-dim:#7a2a22;
-  --gold:#f4b942;
-  --text:#eef3fa;
-  --text-dim:#8fa3c0;
-  --line:#ffffff;
-  --border:#25436a;
-
-  /* Ampel-Skala (Save-Quote) */
-  --q-bad:#c8433a;      /* 0-33% */
-  --q-mid:#8a6a52;      /* 34-66% / wenig Daten */
-  --q-good:#2f9e6e;     /* 67-100% */
-  --q-empty:#1a2c44;    /* keine Daten */
-
-  --radius:14px;
-  --shadow:0 6px 28px rgba(0,0,0,0.45);
-}
+:root{--bg:#0d1b2e;--bg-deep:#081321;--card:#132741;--card-2:#1a3350;--accent:#e8493a;--accent-dim:#7a2a22;--gold:#f4b942;--text:#eef3fa;--text-dim:#8fa3c0;--line:#fff;--border:#25436a;--q-bad:#c8433a;--q-mid:#8a6a52;--q-good:#2f9e6e;--q-empty:#1a2c44;--radius:14px;--shadow:0 6px 28px rgba(0,0,0,0.45)}
 html,body{height:100%;overflow:hidden}
-body{
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent;
-  display:flex;flex-direction:column;height:100dvh;overflow:hidden;
-  user-select:none;-webkit-user-select:none;
-}
-
-/* ===== Header ===== */
-header{
-  padding:10px 16px;display:flex;align-items:center;justify-content:space-between;
-  background:var(--card);border-bottom:2px solid var(--accent);
-  flex-shrink:0;
-}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent;display:flex;flex-direction:column;height:100dvh;overflow:hidden;user-select:none;-webkit-user-select:none}
+header{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;background:var(--card);border-bottom:2px solid var(--accent);flex-shrink:0}
 header h1{font-size:17px;font-weight:800;color:var(--text);letter-spacing:-0.3px}
 header h1 small{font-size:11px;font-weight:600;color:var(--text-dim);margin-left:6px;text-transform:uppercase;letter-spacing:0.5px}
-.header-badge{
-  background:var(--accent);color:#fff;font-size:12px;font-weight:800;
-  padding:4px 12px;border-radius:20px;min-width:28px;text-align:center;
-}
-
-/* ===== Status Bar ===== */
-.status-bar{
-  display:flex;gap:10px;padding:6px 16px;background:var(--bg-deep);
-  border-bottom:1px solid var(--border);flex-shrink:0;
-  font-size:11px;color:var(--text-dim);overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-}
-.status-bar span{white-space:nowrap}
-.status-bar .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
-.dot-green{background:var(--q-good)}
-.dot-gray{background:#4a5a70}
-
-/* ===== Main Content ===== */
+.header-btn{background:none;border:none;color:var(--gold);font-size:13px;font-weight:700;cursor:pointer;padding:4px 8px}
+.status-bar{display:flex;gap:10px;padding:6px 16px;background:var(--bg-deep);border-bottom:1px solid var(--border);flex-shrink:0;font-size:11px;color:var(--text-dim);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.status-bar span{white-space:nowrap}.status-bar .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.dot-green{background:var(--q-good)}.dot-gray{background:#4a5a70}
 main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center}
-
-/* ===== Screen Container ===== */
 .screen{display:none;width:100%;max-width:480px;flex-direction:column;align-items:center;gap:8px;animation:fadeIn .25s ease}
 .screen.active{display:flex}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-
-/* ===== SVG Field ===== */
 .field-container{width:100%;aspect-ratio:400/460;position:relative;touch-action:manipulation}
 .field-container svg{width:100%;height:100%;display:block}
-
-/* ===== Zone Labels ===== */
 .zone-value{font-size:18px;font-weight:800;fill:#fff;pointer-events:none;font-family:inherit}
 .zone-frac{font-size:10px;font-weight:600;fill:rgba(255,255,255,0.75);pointer-events:none}
-.zone-cell{cursor:pointer;transition:opacity .15s,filter .15s}
-.zone-cell:active{opacity:.75}
+.zone-cell{cursor:pointer;transition:opacity .15s,filter .15s}.zone-cell:active{opacity:.75}
 .zone-cell.selected{filter:drop-shadow(0 0 10px rgba(244,185,66,0.85))}
 .zone-letter{font-size:11px;font-weight:700;fill:rgba(255,255,255,0.55);pointer-events:none}
-
-/* ===== Step Indicator ===== */
-.step-indicator{
-  display:flex;align-items:center;justify-content:center;gap:10px;
-  font-size:12px;color:var(--text-dim);padding:4px 0;
-}
-.step-indicator .step{display:flex;align-items:center;gap:5px}
-.step .step-num{
-  width:20px;height:20px;border-radius:50%;border:2px solid var(--border);
-  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--text-dim);
-}
-.step.active .step-num{border-color:var(--gold);color:var(--gold);background:rgba(244,185,66,0.15)}
-.step.active{color:var(--gold)}
-.step.done .step-num{border-color:var(--q-good);color:var(--q-good);background:rgba(47,158,110,0.15)}
-.step.done{color:var(--q-good)}
-
-/* ===== Outcome Buttons ===== */
 .outcome-row{display:flex;gap:10px;width:100%;padding:4px 0}
-.outcome-btn{
-  flex:1;padding:13px;border-radius:var(--radius);border:none;font-size:15px;font-weight:800;
-  cursor:pointer;transition:all .15s;touch-action:manipulation;letter-spacing:0.3px;
-}
+.outcome-btn{flex:1;padding:13px;border-radius:var(--radius);border:none;font-size:15px;font-weight:800;cursor:pointer;transition:all .15s;touch-action:manipulation;letter-spacing:0.3px}
 .outcome-btn:active{transform:scale(0.96)}
 .btn-save{background:linear-gradient(135deg,#2f9e6e,#1f7550);color:#fff}
 .btn-goal{background:linear-gradient(135deg,#e8493a,#b83023);color:#fff}
 .btn-save.selected{box-shadow:0 0 0 3px #fff,0 0 20px rgba(47,158,110,0.6)}
 .btn-goal.selected{box-shadow:0 0 0 3px #fff,0 0 20px rgba(232,73,58,0.6)}
 .btn-save:disabled,.btn-goal:disabled{opacity:.3;transform:none}
-
-/* ===== Action Row ===== */
 .action-row{display:flex;gap:10px;width:100%;padding:4px 0 8px}
-.action-row button{
-  flex:1;padding:12px;border-radius:var(--radius);font-size:14px;font-weight:700;
-  border:1px solid transparent;cursor:pointer;transition:all .15s;touch-action:manipulation;
-}
+.action-row button{flex:1;padding:12px;border-radius:var(--radius);font-size:14px;font-weight:700;border:1px solid transparent;cursor:pointer;transition:all .15s;touch-action:manipulation}
 .btn-reset{background:transparent;border-color:var(--border);color:var(--text-dim)}
 .btn-reset:active{background:rgba(255,255,255,0.05)}
 .btn-save-entry{background:var(--gold);color:#1a1200}
-.btn-save-entry:active{transform:scale(0.96)}
-.btn-save-entry:disabled{opacity:.3;transform:none}
-
-/* ===== Toast / Feedback ===== */
-.toast{
-  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
-  background:var(--card-2);color:var(--text);padding:10px 20px;border-radius:20px;
-  font-size:14px;font-weight:600;box-shadow:var(--shadow);
-  opacity:0;transition:opacity .3s ease,transform .3s ease;pointer-events:none;
-  border:1px solid var(--border);z-index:100;
-}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.success{border-color:var(--q-good)}
-.toast.error{border-color:var(--accent)}
-
-/* ===== Efficiency Footer Bar ===== */
-.eff-bar{
-  width:100%;background:var(--card-2);border-radius:12px;padding:10px 16px;
-  display:flex;align-items:center;justify-content:space-between;
-  border:1px solid var(--border);margin:4px 0;
-}
-.eff-bar .eff-label{font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.4px}
-.eff-bar .eff-value{display:flex;align-items:baseline;gap:8px}
-.eff-bar .eff-pct{font-size:22px;font-weight:900;color:var(--gold)}
-.eff-bar .eff-frac{font-size:13px;color:var(--text-dim);font-weight:600}
-
-/* ===== Stats Summary (Eingabe-Screen Mini-Stats) ===== */
-.stats-summary{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:100%;padding:8px 0;
-}
-.stat-card{
-  background:var(--card);border-radius:10px;padding:10px 8px;text-align:center;
-  border:1px solid var(--border);
-}
-.stat-card .stat-value{font-size:22px;font-weight:900;color:var(--gold)}
-.stat-card .stat-label{font-size:11px;color:var(--text-dim);margin-top:2px;font-weight:600}
-.stat-card .stat-value.goals{color:var(--accent)}
-.stat-card .stat-value.saves{color:var(--q-good)}
-
-/* ===== Tab Bar ===== */
-.tab-bar{
-  display:flex;background:var(--card);border-top:1px solid var(--border);
-  flex-shrink:0;
-}
-.tab-btn{
-  flex:1;padding:8px 4px 10px;background:none;border:none;
-  color:var(--text-dim);font-size:11px;font-weight:700;cursor:pointer;
-  transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:2px;
-  touch-action:manipulation;
-}
-.tab-btn .tab-icon{font-size:20px;line-height:1}
-.tab-btn.active{color:var(--gold);background:rgba(244,185,66,0.08)}
-.tab-btn:active{opacity:.7}
-
-/* ===== Chart Screen ===== */
-.chart-wrapper{width:100%;padding:8px 0}
-.chart-wrapper canvas{width:100%!important;max-height:220px}
-.chart-header{font-size:13px;font-weight:700;color:var(--text-dim);margin-bottom:6px;text-align:center;text-transform:uppercase;letter-spacing:0.4px}
-
-/* ===== History List ===== */
-.history-list{width:100%;padding:4px 0}
-.history-item{
-  display:flex;align-items:center;gap:8px;padding:8px 12px;
-  background:var(--card);border-radius:8px;margin-bottom:4px;
-  border-left:3px solid var(--text-dim);font-size:13px;
-}
-.history-item.saved{border-left-color:var(--q-good)}
-.history-item.goal{border-left-color:var(--accent)}
-.history-item .h-icon{font-size:18px;width:24px;text-align:center}
-.history-item .h-info{flex:1}
-.history-item .h-info strong{display:inline-block;min-width:60px}
-.history-item .h-time{color:var(--text-dim);font-size:11px}
-.history-empty{text-align:center;color:var(--text-dim);padding:24px;font-size:14px;font-style:italic}
-
-/* ===== 1v1 Button ===== */
+.btn-save-entry:active{transform:scale(0.96)}.btn-save-entry:disabled{opacity:.3;transform:none}
 .onevone-row{display:flex;justify-content:center;width:100%;padding:2px 0 4px}
-.btn-1v1{
-  padding:8px 22px;border-radius:20px;border:2px solid var(--border);
-  background:transparent;color:var(--text-dim);font-size:13px;font-weight:700;
-  cursor:pointer;transition:all .15s;touch-action:manipulation;
-}
+.btn-1v1{padding:8px 22px;border-radius:20px;border:2px solid var(--border);background:transparent;color:var(--text-dim);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;touch-action:manipulation}
 .btn-1v1.selected{background:rgba(232,73,58,0.2);border-color:var(--accent);color:var(--accent)}
 .btn-1v1:active{opacity:.75}
-
-/* ===== Body-Part Selector (Schritt 4) ===== */
 .bodypart-row{display:none;flex-direction:column;gap:6px;width:100%;padding:4px 0}
-.bodypart-row.visible{display:flex}
-.bodypart-main{display:flex;gap:8px;width:100%}
-.bodypart-btn{
-  flex:1;padding:10px 6px;border-radius:10px;border:2px solid var(--border);
-  background:var(--card);color:var(--text-dim);font-size:13px;font-weight:700;
-  cursor:pointer;transition:all .15s;touch-action:manipulation;text-align:center;
-}
+.bodypart-row.visible{display:flex}.bodypart-main{display:flex;gap:8px;width:100%}
+.bodypart-btn{flex:1;padding:10px 6px;border-radius:10px;border:2px solid var(--border);background:var(--card);color:var(--text-dim);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;touch-action:manipulation;text-align:center}
 .bodypart-btn.selected{border-color:var(--gold);color:var(--gold);background:rgba(244,185,66,0.12)}
-.bodypart-btn:active{opacity:.75}
 .bodypart-detail{display:flex;gap:8px;width:100%;justify-content:center}
-.bodypart-detail-btn{
-  padding:7px 18px;border-radius:20px;border:2px solid var(--border);
-  background:transparent;color:var(--text-dim);font-size:12px;font-weight:700;
-  cursor:pointer;transition:all .15s;touch-action:manipulation;
-}
+.bodypart-detail-btn{padding:7px 18px;border-radius:20px;border:2px solid var(--border);background:transparent;color:var(--text-dim);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;touch-action:manipulation}
 .bodypart-detail-btn.selected{border-color:var(--gold);color:var(--gold)}
 .bodypart-detail-btn:active{opacity:.75}
-
-/* ===== Session Setup ===== */
+/* Setup */
 .setup-wrap{width:100%;max-width:480px;display:flex;flex-direction:column;gap:14px;padding:4px 0}
 .setup-title{font-size:22px;font-weight:900;color:var(--text);text-align:center;padding:6px 0 2px}
 .setup-field{display:flex;flex-direction:column;gap:6px}
 .setup-label{font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px}
 .setup-input{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:15px;font-family:inherit;-webkit-appearance:none;width:100%}
 .setup-input::placeholder{color:var(--text-dim)}
-.setup-types{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.setup-type-btn{padding:12px 6px;border-radius:10px;border:2px solid var(--border);background:var(--card);color:var(--text-dim);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;touch-action:manipulation}
-.setup-type-btn.selected{border-color:var(--gold);color:var(--gold);background:rgba(244,185,66,0.1)}
-.setup-type-btn:active{opacity:.75}
+.setup-types,.setup-clubs{display:grid;gap:8px}.setup-clubs{grid-template-columns:1fr 1fr}
+.setup-types{grid-template-columns:1fr 1fr}
+.setup-type-btn,.setup-club-btn{padding:12px 6px;border-radius:10px;border:2px solid var(--border);background:var(--card);color:var(--text-dim);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;touch-action:manipulation;text-align:center}
+.setup-type-btn.selected,.setup-club-btn.selected{border-color:var(--gold);color:var(--gold);background:rgba(244,185,66,0.1)}
+.setup-type-btn:active,.setup-club-btn:active{opacity:.75}
+.setup-half{display:flex;gap:8px;align-items:center}.setup-half input{width:70px;flex-shrink:0}
+.setup-half span{font-size:13px;color:var(--text-dim)}
 .setup-start-btn{width:100%;padding:16px;border-radius:var(--radius);background:var(--gold);color:#1a1200;font-size:16px;font-weight:800;border:none;cursor:pointer;touch-action:manipulation;margin-top:4px}
 .setup-start-btn:active{transform:scale(0.98)}
-
-/* ===== Session History ===== */
-.session-item{background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:6px;border-left:3px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px}
-.session-item:active{opacity:.75}
-.session-item .si-icon{font-size:20px;width:28px;text-align:center}
-.session-item .si-info{flex:1}
-.session-item .si-title{font-size:14px;font-weight:700;color:var(--text)}
-.session-item .si-sub{font-size:12px;color:var(--text-dim);margin-top:2px}
-.session-item .si-stat{font-size:18px;font-weight:800;color:var(--gold)}
-.session-item.heim{border-left-color:#2f9e6e}
-.session-item.auswaerts{border-left-color:var(--accent)}
-.session-item.freundschaft{border-left-color:#4a8fe8}
-.session-item.training{border-left-color:var(--gold)}
-
-/* ===== Scroll helpers ===== */
+.setup-keeper-header{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+.setup-keeper-add{background:var(--card);border:2px dashed var(--border);border-radius:10px;padding:12px;color:var(--gold);font-size:13px;font-weight:700;cursor:pointer;width:100%;text-align:center}
+.setup-keeper-row{display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
+.setup-keeper-row input{flex:1;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;font-family:inherit;width:0}
+.setup-keeper-row input.knr{flex:0 0 50px;text-align:center}
+.setup-keeper-row .kdel{color:var(--accent);font-size:16px;cursor:pointer;padding:4px 8px}
+/* Input Top Bar */
+.input-top{display:flex;align-items:center;gap:6px;width:100%;padding:2px 0}
+.input-top .score{flex:1;text-align:center;font-size:18px;font-weight:900;color:var(--text)}
+.input-top .score span.heim{color:var(--q-good)}.input-top .score span.gast{color:var(--accent)}
+.input-top .clock{font-size:20px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums;min-width:70px;text-align:center}
+.input-top .btn-clock{background:none;border:none;color:var(--text-dim);font-size:24px;cursor:pointer;padding:4px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+.input-top .btn-oppgoal{background:var(--card);border:2px solid var(--q-good);border-radius:10px;color:var(--q-good);font-size:14px;font-weight:800;cursor:pointer;padding:6px 12px;min-height:44px;text-align:center}
+.input-top .badge-keeper{background:var(--card);border:2px solid var(--border);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;min-height:36px}
+/* Keeper switch modal */
+.keeper-switch{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:190;display:none;align-items:center;justify-content:center;padding:20px}
+.keeper-switch.open{display:flex}
+.keeper-switch-box{background:var(--card);border-radius:var(--radius);padding:20px;width:300px;border:1px solid var(--border)}
+.keeper-switch-box h3{font-size:15px;font-weight:800;color:var(--text);margin-bottom:12px;text-align:center}
+.keeper-switch-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;margin-bottom:6px;cursor:pointer;border:2px solid var(--border);transition:all .15s}
+.keeper-switch-item.active{border-color:var(--gold);background:rgba(244,185,66,0.08)}
+.keeper-switch-item:active{opacity:.7}
+.keeper-switch-item .kn{font-weight:900;color:var(--gold);font-size:16px;min-width:30px}
+.keeper-switch-item .knm{font-weight:700;color:var(--text);font-size:14px}
+.k-switch-close{width:100%;padding:12px;border-radius:var(--radius);background:transparent;border:2px solid var(--border);color:var(--text-dim);font-size:14px;font-weight:700;cursor:pointer;margin-top:8px}
+/* S-Filter */
+.s-filter{display:flex;gap:6px;width:100%;overflow-x:auto;padding:4px 0 6px;-webkit-overflow-scrolling:touch;flex-wrap:wrap}
+.s-filter-btn{padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:transparent;color:var(--text-dim);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s}
+.s-filter-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(244,185,66,0.1)}
+.s-filter-btn.esv{border-color:#2f9e6e;color:#2f9e6e}.s-filter-btn.esv.active{background:rgba(47,158,110,0.15)}
+.s-filter-btn.hga{border-color:#4a8fe8;color:#4a8fe8}.s-filter-btn.hga.active{background:rgba(74,143,232,0.15)}
+.s-actions{display:flex;gap:6px;width:100%;margin-bottom:6px}
+.s-actions button{flex:1;padding:8px;border-radius:10px;border:2px solid var(--border);background:transparent;font-size:12px;font-weight:700;cursor:pointer}
+.s-actions .btn-close{border-color:#3a7ae8;color:#3a7ae8}
+.s-actions .btn-del{border-color:var(--accent);color:var(--accent)}
+.s-actions .btn-combine{border-color:var(--gold);color:var(--gold)}
+.session-item{background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:5px;border-left:3px solid var(--border);display:flex;align-items:center;gap:8px;font-size:13px}
+.session-item .si-cb{width:18px;height:18px;flex-shrink:0;accent-color:var(--gold);cursor:pointer}
+.session-item .si-icon{font-size:16px;width:24px;text-align:center;flex-shrink:0;cursor:pointer}
+.session-item .si-info{flex:1;min-width:0;cursor:pointer}
+.session-item .si-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:4px}
+.session-item .si-sub{font-size:11px;color:var(--text-dim);margin-top:1px}
+.session-item .si-stat{font-size:16px;font-weight:800;color:var(--gold);flex-shrink:0;cursor:pointer}
+.session-item .si-club{font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700}
+.session-item .si-club.esv{background:rgba(47,158,110,0.2);color:#2f9e6e}
+.session-item .si-club.hga{background:rgba(74,143,232,0.2);color:#4a8fe8}
+.session-item.closed{opacity:.6}
+.session-item.heim{border-left-color:#2f9e6e}.session-item.auswaerts{border-left-color:var(--accent)}
+.session-item.freundschaft{border-left-color:#4a8fe8}.session-item.training{border-left-color:var(--gold)}
 .scroll-area{width:100%;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;padding-bottom:4px}
 .title-row{width:100%;display:flex;align-items:center;justify-content:space-between;padding:2px 2px 0}
 .title-row .title-main{font-size:16px;font-weight:800;color:var(--text)}
-.title-row .title-close{color:var(--text-dim);font-size:20px;cursor:pointer}
-</style>
-</head>
-<body>
+.tab-bar{display:flex;width:100%;flex-shrink:0;background:var(--card);border-top:1px solid var(--border)}
+.tab-btn{flex:1;padding:10px 2px 12px;background:none;border:none;color:var(--text-dim);font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-height:48px}
+.tab-btn .tab-icon{font-size:20px;line-height:1}
+.tab-btn.active{color:var(--gold);background:rgba(244,185,66,0.08)}
+.eff-bar{width:100%;background:var(--card-2);border-radius:12px;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);margin:4px 0;cursor:pointer}
+.eff-bar .eff-label{font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.4px}
+.eff-bar .eff-value{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.eff-bar .eff-pct{font-size:22px;font-weight:900;color:var(--gold);transition:color .3s}
+.eff-bar .eff-frac{font-size:13px;color:var(--text-dim);font-weight:600}
+.eff-bar .eff-class{font-size:11px;font-weight:700;padding:2px 10px;border-radius:12px;margin-left:4px;transition:all .3s}
+.keeper-filter{display:flex;gap:4px;width:100%;overflow-x:auto;padding:2px 0}
+.keeper-filter-btn{padding:5px 12px;border-radius:20px;border:2px solid var(--border);background:transparent;color:var(--text-dim);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s}
+.keeper-filter-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(244,185,66,0.1)}
+.chart-wrapper{width:100%;padding:8px 0}
+.chart-wrapper canvas{width:100%!important;max-height:220px}
+.chart-header{font-size:13px;font-weight:700;color:var(--text-dim);margin-bottom:6px;text-align:center;text-transform:uppercase;letter-spacing:0.4px}
+.history-list{width:100%;padding:4px 0}
+.history-item{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card);border-radius:8px;margin-bottom:4px;border-left:3px solid var(--text-dim);font-size:12px}
+.history-item.saved{border-left-color:var(--q-good)}.history-item.goal{border-left-color:var(--accent)}
+.history-item .h-icon{font-size:16px;width:20px;text-align:center}
+.history-item .h-info{flex:1}
+.history-item .h-info strong{display:inline-block;min-width:50px}
+.history-item .h-time{color:var(--text-dim);font-size:10px}
+.history-empty{text-align:center;color:var(--text-dim);padding:24px;font-size:14px;font-style:italic}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--card-2);color:var(--text);padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:opacity .3s ease,transform .3s ease;pointer-events:none;border:1px solid var(--border);z-index:100}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.success{border-color:var(--q-good)}.toast.error{border-color:var(--accent)}
+.mask{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
+.mask.open{display:flex}
+.mbox{background:var(--card);padding:24px;border-radius:var(--radius);max-width:90vw;width:340px;border:1px solid var(--border);animation:fadeIn .25s ease}
+.mbox h3{font-size:15px;font-weight:800;color:var(--text);margin-bottom:16px;text-align:center}
+.mrow{display:flex;align-items:center;gap:10px;font-size:13px;padding:3px 0}
+.mrow .sw{width:20px;height:20px;border-radius:4px;flex-shrink:0}
+.mrow .rng{font-weight:800;white-space:nowrap}.mrow .lbl{color:var(--text-dim)}
+.mhint{font-size:11px;color:var(--text-dim);margin-top:16px;padding:8px 12px;background:var(--bg-deep);border-radius:10px;line-height:1.4}
+.mclose{background:var(--gold);color:#1a1200;border:none;padding:12px;border-radius:var(--radius);font-size:14px;font-weight:800;cursor:pointer;margin-top:16px;width:100%}
+</style></head><body>
 
-<!-- Header -->
-<header>
-  <h1>GK-Analytics <small>B-Jugend</small></h1>
-  <span class="header-badge" id="shotCounter">0</span>
-</header>
+<header><h1>GK-Analytics <small>B-Jugend</small></h1><button class="header-btn" id="headerNewGame">+ Neu</button></header>
+<div class="status-bar"><span><span class="dot dot-green"></span>Bereit</span><span id="statusSession">Kein aktives Spiel</span><span id="syncStatus"><span class="dot dot-gray"></span>Offline</span></div>
 
-<!-- Status -->
-<div class="status-bar">
-  <span><span class="dot dot-green"></span>Bereit</span>
-  <span id="statusSession">Heute · 0 Shots</span>
-  <span id="syncStatus"><span class="dot dot-gray"></span>Offline</span>
-</div>
-
-<!-- Main -->
 <main>
-  <!-- ===== SCREEN 0: SESSION SETUP ===== -->
-  <div class="screen active" id="screenSetup">
-    <div class="setup-wrap">
-      <div class="setup-title">⚽ Neues Spiel</div>
-      <div class="setup-field">
-        <div class="setup-label">Datum</div>
-        <input type="date" id="setupDate" class="setup-input"/>
-      </div>
-      <div class="setup-field">
-        <div class="setup-label">Spieltyp</div>
-        <div class="setup-types">
-          <button class="setup-type-btn selected" data-type="heim">🏠 Heimspiel</button>
-          <button class="setup-type-btn" data-type="auswaerts">✈️ Auswärts</button>
-          <button class="setup-type-btn" data-type="freundschaft">🤝 Freundschaft</button>
-          <button class="setup-type-btn" data-type="training">🏃 Training</button>
-        </div>
-      </div>
-      <div class="setup-field" id="opponentField">
-        <div class="setup-label">Gegner</div>
-        <input type="text" id="setupOpponent" class="setup-input" placeholder="z.B. TSV Musterstadt"/>
-      </div>
-      <button class="setup-start-btn" id="btnStartSession">🎯 Aufzeichnung starten</button>
-    </div>
-  </div>
+<!-- SCREEN 0: SETUP -->
+<div class="screen" id="screenSetup">
+<div class="setup-wrap">
+<div class="setup-title">⚽ Neues Spiel</div>
+<div class="setup-field"><div class="setup-label">Verein</div><div class="setup-clubs"><button class="setup-club-btn selected" data-club="ESV">ESV</button><button class="setup-club-btn" data-club="HGA">HGA</button></div></div>
+<div class="setup-field"><div class="setup-label">Datum</div><input type="date" id="setupDate" class="setup-input"/></div>
+<div class="setup-field"><div class="setup-label">Spieltyp</div><div class="setup-types"><button class="setup-type-btn selected" data-type="heim">🏠 Heimspiel</button><button class="setup-type-btn" data-type="auswaerts">✈️ Auswärts</button><button class="setup-type-btn" data-type="freundschaft">🤝 Freundschaft</button><button class="setup-type-btn" data-type="training">🏃 Training</button></div></div>
+<div class="setup-field" id="opponentField"><div class="setup-label">Gegner</div><input type="text" id="setupOpponent" class="setup-input" placeholder="z.B. TSV Musterstadt"/></div>
+<div class="setup-field"><div class="setup-label">Halbzeit (Minuten)</div><div class="setup-half"><input type="number" id="setupHalf" class="setup-input" value="30" min="1" max="60"/><span>min</span></div></div>
+<div class="setup-field"><div class="setup-keeper-header"><div class="setup-label">Torhüter</div></div>
+<div id="keeperList"></div>
+<button class="setup-keeper-add" id="btnAddKeeper">➕ Torhüter hinzufügen</button></div>
+<button class="setup-start-btn" id="btnStartSession">🎯 Aufzeichnung starten</button>
+</div></div>
 
-  <!-- ===== SCREEN 1: INPUT ===== -->
-  <div class="screen" id="screenInput">
-    <!-- Step indicator -->
-    <div class="step-indicator">
-      <span class="step active" id="step1"><span class="step-num">1</span>Wurfzone</span>
-      <span style="color:var(--border)">→</span>
-      <span class="step" id="step2"><span class="step-num">2</span>Torzone</span>
-      <span style="color:var(--border)">→</span>
-      <span class="step" id="step3"><span class="step-num">3</span>Ausgang</span>
-      <span style="color:var(--border)">→</span>
-      <span class="step" id="step4"><span class="step-num">4</span>Körperteil</span>
-    </div>
+<!-- SCREEN 1: INPUT -->
+<div class="screen" id="screenInput">
+<div class="input-top">
+  <button class="badge-keeper" id="btnActiveKeeper">🧤 #1</button>
+  <div class="score"><span class="heim" id="scoreOwn" onclick="editScore('own')">0</span> : <span class="gast" id="scoreOpp" onclick="editScore('opp')">0</span></div>
+  <span class="clock" id="gameClock" onclick="editClock()" style="cursor:pointer">00:00</span>
+  <button class="btn-clock" id="btnClock">⏸️</button>
+  <button class="btn-oppgoal" id="btnOppGoal">Tor ESV</button>
+</div>
+<div class="onevone-row"><button class="btn-1v1" id="btn1v1">⚡ 1 gegen 1</button></div>
+<div class="field-container" id="fieldContainer">
+<svg viewBox="0 0 400 460" xmlns="http://www.w3.org/2000/svg">
+<defs><pattern id="netPattern" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M0,0 L10,10 M10,0 L0,10" stroke="rgba(255,255,255,0.10)" stroke-width="0.6"/></pattern><pattern id="postStripes" width="16" height="16" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="16" height="8" fill="var(--accent)"/><rect y="8" width="16" height="8" fill="#fff"/></pattern></defs>
+<rect width="400" height="460" fill="var(--bg)" rx="10"/>
+<rect x="68" y="8" width="12" height="172" fill="url(#postStripes)" rx="5"/><rect x="320" y="8" width="12" height="172" fill="url(#postStripes)" rx="5"/><rect x="68" y="8" width="264" height="12" fill="url(#postStripes)" rx="5"/>
+<line x1="80" y1="180" x2="320" y2="180" stroke="#fff" stroke-width="2.5"/>
+<rect x="80" y="20" width="240" height="160" fill="url(#netPattern)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/><rect x="80" y="20" width="240" height="160" fill="none" stroke="#fff" stroke-width="1.5"/>
+<g id="targetZones">
+<rect x="80" y="20" width="80" height="53.3" class="zone-cell target-zone" data-zone="1" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+<rect x="160" y="20" width="80" height="53.3" class="zone-cell target-zone" data-zone="2" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+<rect x="240" y="20" width="80" height="53.3" class="zone-cell target-zone" data-zone="3" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+<rect x="80" y="73.3" width="80" height="53.4" class="zone-cell target-zone" data-zone="4" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+<rect x="160" y="73.3" width="80" height="53.4" class="zone-cell target-zone" data-zone="5" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+<rect x="240" y="73.3" width="80" height="53.4" class="zone-cell target-zone" data-zone="6" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+<rect x="80" y="126.7" width="80" height="53.3" class="zone-cell target-zone" data-zone="7" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+<rect x="160" y="126.7" width="80" height="53.3" class="zone-cell target-zone" data-zone="8" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+<rect x="240" y="126.7" width="80" height="53.3" class="zone-cell target-zone" data-zone="9" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
+</g>
+<g id="targetLabels" style="display:none">
+<text x="120" y="52" class="zone-value" data-zlabel="1" text-anchor="middle">OR</text><text x="200" y="52" class="zone-value" data-zlabel="2" text-anchor="middle">OM</text><text x="280" y="52" class="zone-value" data-zlabel="3" text-anchor="middle">OL</text>
+<text x="120" y="105" class="zone-value" data-zlabel="4" text-anchor="middle">MR</text><text x="200" y="105" class="zone-value" data-zlabel="5" text-anchor="middle">MM</text><text x="280" y="105" class="zone-value" data-zlabel="6" text-anchor="middle">ML</text>
+<text x="120" y="158" class="zone-value" data-zlabel="7" text-anchor="middle">UR</text><text x="200" y="158" class="zone-value" data-zlabel="8" text-anchor="middle">UM</text><text x="280" y="158" class="zone-value" data-zlabel="9" text-anchor="middle">UL</text>
+</g>
+<path d="M 80 180 A 120 120 0 0 0 320 180 Z" fill="#1e4fa8"/><path d="M 80 180 A 120 120 0 0 0 320 180" fill="none" stroke="#4a8fe8" stroke-width="1.5"/>
+<g id="shooterZones">
+<path d="M 80 180 A 120 120 0 0 0 103 251 L 38 298 A 200 200 0 0 1 0 180 Z" class="zone-cell shooter-zone" data-zone="A" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 103 251 A 120 120 0 0 0 163 294 L 138 370 A 200 200 0 0 1 38 298 Z" class="zone-cell shooter-zone" data-zone="B" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 163 294 A 120 120 0 0 0 237 294 L 262 370 A 200 200 0 0 1 138 370 Z" class="zone-cell shooter-zone" data-zone="C" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 237 294 A 120 120 0 0 0 297 251 L 362 298 A 200 200 0 0 1 262 370 Z" class="zone-cell shooter-zone" data-zone="D" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 297 251 A 120 120 0 0 0 320 180 L 400 180 A 200 200 0 0 1 362 298 Z" class="zone-cell shooter-zone" data-zone="E" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 0 180 A 200 200 0 0 0 100 353 L 20 460 L 0 460 Z" class="zone-cell shooter-zone" data-zone="F" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 100 353 A 200 200 0 0 0 300 353 L 380 460 L 20 460 Z" class="zone-cell shooter-zone" data-zone="G" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 300 353 A 200 200 0 0 0 400 180 L 400 460 L 380 460 Z" class="zone-cell shooter-zone" data-zone="H" stroke="var(--bg)" stroke-width="2"/>
+<circle cx="200" cy="243" r="24" class="zone-cell shooter-zone" data-zone="7m" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+</g>
+<g style="pointer-events:none">
+<text x="200" y="248" text-anchor="middle" font-size="10" font-weight="800" fill="rgba(255,255,255,0.7)">7m</text>
+<text x="44" y="230" class="zone-letter" text-anchor="middle">LA</text><text x="82" y="322" class="zone-letter" text-anchor="middle">KL</text><text x="200" y="336" class="zone-letter" text-anchor="middle">KM</text>
+<text x="318" y="322" class="zone-letter" text-anchor="middle">KR</text><text x="356" y="230" class="zone-letter" text-anchor="middle">RA</text>
+<text x="28" y="415" class="zone-letter" text-anchor="middle">HL</text><text x="200" y="435" class="zone-letter" text-anchor="middle">HM</text><text x="372" y="415" class="zone-letter" text-anchor="middle">HR</text>
+</g>
+<text x="14" y="456" fill="var(--text-dim)" font-size="9">LA/RA: Außen · KL/KM/KR: Kreis · HL/HM/HR: Halbfeld · 7m</text>
+</svg></div>
+<div style="width:100%;padding:2px 0 4px;text-align:center;font-size:13px;color:var(--text-dim);min-height:20px" id="selectionDisplay">👆 Tippe Wurfzone → Torzone → Ausgang</div>
+<div class="outcome-row"><button class="outcome-btn btn-save" id="btnSave" disabled>🧤 GEHALTEN</button><button class="outcome-btn btn-goal" id="btnGoal" disabled>⚽ TOR</button></div>
+<div class="bodypart-row" id="bodypartRow">
+<div class="bodypart-main"><button class="bodypart-btn" data-part="hand">🤚 Hand</button><button class="bodypart-btn" data-part="fuss">🦵 Fuß</button><button class="bodypart-btn" data-part="koerper">💪 Körper</button></div>
+<div class="bodypart-detail" id="bodypartDetail" style="display:none">
+<button class="bodypart-detail-btn" id="btnHandTief" data-detail="tief">Hand tief</button>
+<button class="bodypart-detail-btn" id="btnFussHoch" data-detail="hoch">Fuß hoch</button>
+<button class="bodypart-detail-btn" id="btnFussHalbhoch" data-detail="halbhoch">Fuß halb hoch</button>
+</div></div>
+<div class="action-row"><button class="btn-reset" id="btnReset">↺ Zurücksetzen</button><button class="btn-save-entry" id="btnSubmit" disabled>✓ Shot eintragen</button></div>
+<div style="display:flex;gap:8px;width:100%;padding:6px 0">
+<div style="flex:1;background:var(--card);border-radius:10px;padding:10px 6px;text-align:center;border:1px solid var(--border)"><div style="font-size:22px;font-weight:900;color:var(--q-good)" id="statSaves2">0</div><div style="font-size:10px;color:var(--text-dim);font-weight:600;margin-top:2px">Gehalten</div></div>
+<div style="flex:1;background:var(--card);border-radius:10px;padding:10px 6px;text-align:center;border:1px solid var(--border)"><div style="font-size:22px;font-weight:900;color:var(--accent)" id="statGoals2">0</div><div style="font-size:10px;color:var(--text-dim);font-weight:600;margin-top:2px">Tore</div></div>
+<div style="flex:1;background:var(--card);border-radius:10px;padding:10px 6px;text-align:center;border:1px solid var(--border)"><div style="font-size:22px;font-weight:900;color:var(--gold)" id="statPct2">—%</div><div style="font-size:10px;color:var(--text-dim);font-weight:600;margin-top:2px">Save%</div></div>
+</div></div>
 
-    <!-- 1v1 Toggle -->
-    <div class="onevone-row">
-      <button class="btn-1v1" id="btn1v1">⚡ 1 gegen 1</button>
-    </div>
+<!-- SCREEN 2: STATS -->
+<div class="screen" id="screenStats"><div class="scroll-area">
+<div class="title-row"><span class="title-main">Statistiken</span></div>
+<div class="keeper-filter" id="keeperFilter"></div>
+<div class="eff-bar" onclick="openLegend()"><span class="eff-label" id="statsEffLabel">Effizienz Torwart</span><span class="eff-value"><span class="eff-pct" id="effPct">—%</span><span class="eff-frac" id="effFrac">0/0</span><span class="eff-class" id="effClass">—</span></span></div>
+<div class="eff-bar" id="seasonAvgBar" style="display:none" onclick="openLegend()"><span class="eff-label">📅 Saison-Schnitt</span><span class="eff-value"><span class="eff-pct" id="seasonPct">—%</span><span class="eff-frac" id="seasonFrac">0/0</span><span class="eff-class" id="seasonClass">—</span></span></div>
+<div class="field-container" id="statsFieldContainer" style="margin-top:6px">
+<svg viewBox="0 0 400 460" xmlns="http://www.w3.org/2000/svg">
+<defs><pattern id="postStripes2" width="16" height="16" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="16" height="8" fill="var(--accent)"/><rect y="8" width="16" height="8" fill="#fff"/></pattern></defs>
+<rect width="400" height="460" fill="var(--bg)" rx="10"/>
+<rect x="68" y="8" width="12" height="172" fill="url(#postStripes2)" rx="5"/><rect x="320" y="8" width="12" height="172" fill="url(#postStripes2)" rx="5"/><rect x="68" y="8" width="264" height="12" fill="url(#postStripes2)" rx="5"/>
+<line x1="80" y1="180" x2="320" y2="180" stroke="#fff" stroke-width="2.5"/>
+<rect x="80" y="20" width="240" height="160" fill="var(--bg-deep)" stroke="#fff" stroke-width="1.5"/>
+<g id="statsTargetZones">
+<rect x="80" y="20" width="80" height="53.3" class="stat-zone" data-zone="1" stroke="var(--bg)" stroke-width="2"/>
+<rect x="160" y="20" width="80" height="53.3" class="stat-zone" data-zone="2" stroke="var(--bg)" stroke-width="2"/>
+<rect x="240" y="20" width="80" height="53.3" class="stat-zone" data-zone="3" stroke="var(--bg)" stroke-width="2"/>
+<rect x="80" y="73.3" width="80" height="53.4" class="stat-zone" data-zone="4" stroke="var(--bg)" stroke-width="2"/>
+<rect x="160" y="73.3" width="80" height="53.4" class="stat-zone" data-zone="5" stroke="var(--bg)" stroke-width="2"/>
+<rect x="240" y="73.3" width="80" height="53.4" class="stat-zone" data-zone="6" stroke="var(--bg)" stroke-width="2"/>
+<rect x="80" y="126.7" width="80" height="53.3" class="stat-zone" data-zone="7" stroke="var(--bg)" stroke-width="2"/>
+<rect x="160" y="126.7" width="80" height="53.3" class="stat-zone" data-zone="8" stroke="var(--bg)" stroke-width="2"/>
+<rect x="240" y="126.7" width="80" height="53.3" class="stat-zone" data-zone="9" stroke="var(--bg)" stroke-width="2"/>
+</g>
+<g id="statsTargetLabels" style="pointer-events:none">
+<text x="120" y="40" class="zone-value" text-anchor="middle" data-zsave="1"></text><text x="120" y="54" class="zone-frac" text-anchor="middle" data-zfrac="1"></text>
+<text x="200" y="40" class="zone-value" text-anchor="middle" data-zsave="2"></text><text x="200" y="54" class="zone-frac" text-anchor="middle" data-zfrac="2"></text>
+<text x="280" y="40" class="zone-value" text-anchor="middle" data-zsave="3"></text><text x="280" y="54" class="zone-frac" text-anchor="middle" data-zfrac="3"></text>
+<text x="120" y="93" class="zone-value" text-anchor="middle" data-zsave="4"></text><text x="120" y="107" class="zone-frac" text-anchor="middle" data-zfrac="4"></text>
+<text x="200" y="93" class="zone-value" text-anchor="middle" data-zsave="5"></text><text x="200" y="107" class="zone-frac" text-anchor="middle" data-zfrac="5"></text>
+<text x="280" y="93" class="zone-value" text-anchor="middle" data-zsave="6"></text><text x="280" y="107" class="zone-frac" text-anchor="middle" data-zfrac="6"></text>
+<text x="120" y="147" class="zone-value" text-anchor="middle" data-zsave="7"></text><text x="120" y="161" class="zone-frac" text-anchor="middle" data-zfrac="7"></text>
+<text x="200" y="147" class="zone-value" text-anchor="middle" data-zsave="8"></text><text x="200" y="161" class="zone-frac" text-anchor="middle" data-zfrac="8"></text>
+<text x="280" y="147" class="zone-value" text-anchor="middle" data-zsave="9"></text><text x="280" y="161" class="zone-frac" text-anchor="middle" data-zfrac="9"></text>
+</g>
+<path d="M 80 180 A 120 120 0 0 0 320 180 Z" fill="#1e4fa8"/><path d="M 80 180 A 120 120 0 0 0 320 180" fill="none" stroke="#4a8fe8" stroke-width="1.5"/>
+<g id="statsShooterZones">
+<path d="M 80 180 A 120 120 0 0 0 103 251 L 38 298 A 200 200 0 0 1 0 180 Z" class="stat-zone" data-zone="A" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 103 251 A 120 120 0 0 0 163 294 L 138 370 A 200 200 0 0 1 38 298 Z" class="stat-zone" data-zone="B" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 163 294 A 120 120 0 0 0 237 294 L 262 370 A 200 200 0 0 1 138 370 Z" class="stat-zone" data-zone="C" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 237 294 A 120 120 0 0 0 297 251 L 362 298 A 200 200 0 0 1 262 370 Z" class="stat-zone" data-zone="D" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 297 251 A 120 120 0 0 0 320 180 L 400 180 A 200 200 0 0 1 362 298 Z" class="stat-zone" data-zone="E" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 0 180 A 200 200 0 0 0 100 353 L 20 460 L 0 460 Z" class="stat-zone" data-zone="F" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 100 353 A 200 200 0 0 0 300 353 L 380 460 L 20 460 Z" class="stat-zone" data-zone="G" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 300 353 A 200 200 0 0 0 400 180 L 400 460 L 380 460 Z" class="stat-zone" data-zone="H" stroke="var(--bg)" stroke-width="2"/>
+<circle cx="200" cy="243" r="24" class="stat-zone" data-zone="7m" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+</g>
+<g id="statsShooterLabels" style="pointer-events:none">
+<text x="44" y="212" class="zone-letter" text-anchor="middle" font-size="10">LA</text><text x="44" y="226" class="zone-value" text-anchor="middle" font-size="11" data-zsave="A"></text><text x="44" y="238" class="zone-frac" text-anchor="middle" data-zfrac="A"></text>
+<text x="82" y="304" class="zone-letter" text-anchor="middle" font-size="10">KL</text><text x="82" y="318" class="zone-value" text-anchor="middle" font-size="11" data-zsave="B"></text><text x="82" y="330" class="zone-frac" text-anchor="middle" data-zfrac="B"></text>
+<text x="200" y="318" class="zone-letter" text-anchor="middle" font-size="10">KM</text><text x="200" y="332" class="zone-value" text-anchor="middle" font-size="11" data-zsave="C"></text><text x="200" y="344" class="zone-frac" text-anchor="middle" data-zfrac="C"></text>
+<text x="318" y="304" class="zone-letter" text-anchor="middle" font-size="10">KR</text><text x="318" y="318" class="zone-value" text-anchor="middle" font-size="11" data-zsave="D"></text><text x="318" y="330" class="zone-frac" text-anchor="middle" data-zfrac="D"></text>
+<text x="356" y="212" class="zone-letter" text-anchor="middle" font-size="10">RA</text><text x="356" y="226" class="zone-value" text-anchor="middle" font-size="11" data-zsave="E"></text><text x="356" y="238" class="zone-frac" text-anchor="middle" data-zfrac="E"></text>
+<text x="28" y="396" class="zone-letter" text-anchor="middle" font-size="10">HL</text><text x="28" y="410" class="zone-value" text-anchor="middle" font-size="11" data-zsave="F"></text><text x="28" y="422" class="zone-frac" text-anchor="middle" data-zfrac="F"></text>
+<text x="200" y="411" class="zone-letter" text-anchor="middle" font-size="10">HM</text><text x="200" y="425" class="zone-value" text-anchor="middle" font-size="11" data-zsave="G"></text><text x="200" y="437" class="zone-frac" text-anchor="middle" data-zfrac="G"></text>
+<text x="372" y="396" class="zone-letter" text-anchor="middle" font-size="10">HR</text><text x="372" y="410" class="zone-value" text-anchor="middle" font-size="11" data-zsave="H"></text><text x="372" y="422" class="zone-frac" text-anchor="middle" data-zfrac="H"></text>
+<text x="200" y="237" class="zone-value" text-anchor="middle" font-size="11" data-zsave="7m"></text><text x="200" y="249" class="zone-frac" text-anchor="middle" data-zfrac="7m"></text>
+</g></svg></div>
+<div class="chart-header" style="margin-top:10px">Torzonen-Verteilung</div>
+<div class="chart-wrapper"><canvas id="chartZones"></canvas></div>
+<div class="chart-header" style="margin-top:12px">Letzte Shots</div>
+<div class="history-list" id="historyList"><div class="history-empty">Noch keine Shots erfasst</div></div>
+</div></div>
 
-    <!-- Field SVG -->
-    <div class="field-container" id="fieldContainer">
-      <svg viewBox="0 0 400 460" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="netPattern" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M0,0 L10,10 M10,0 L0,10" stroke="rgba(255,255,255,0.10)" stroke-width="0.6"/>
-          </pattern>
-          <pattern id="postStripes" width="16" height="16" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-            <rect width="16" height="8" fill="var(--accent)"/>
-            <rect y="8" width="16" height="8" fill="#fff"/>
-          </pattern>
-        </defs>
-
-        <!-- Hintergrund -->
-        <rect width="400" height="460" fill="var(--bg)" rx="10"/>
-
-        <!-- TOR: 3:2 (240×160px) – 3 Pfosten, keine Bodenleiste -->
-        <rect x="68"  y="8" width="12"  height="172" fill="url(#postStripes)" rx="5"/>
-        <rect x="320" y="8" width="12"  height="172" fill="url(#postStripes)" rx="5"/>
-        <rect x="68"  y="8" width="264" height="12"  fill="url(#postStripes)" rx="5"/>
-        <line x1="80" y1="180" x2="320" y2="180" stroke="#fff" stroke-width="2.5"/>
-        <rect x="80" y="20" width="240" height="160" fill="url(#netPattern)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-        <rect x="80" y="20" width="240" height="160" fill="none" stroke="#fff" stroke-width="1.5"/>
-
-        <!-- TORZONEN 3×3 (80×53.3px pro Zelle) -->
-        <g id="targetZones">
-          <rect x="80"  y="20"    width="80" height="53.3" class="zone-cell target-zone" data-zone="1" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
-          <rect x="160" y="20"    width="80" height="53.3" class="zone-cell target-zone" data-zone="2" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
-          <rect x="240" y="20"    width="80" height="53.3" class="zone-cell target-zone" data-zone="3" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
-          <rect x="80"  y="73.3"  width="80" height="53.4" class="zone-cell target-zone" data-zone="4" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
-          <rect x="160" y="73.3"  width="80" height="53.4" class="zone-cell target-zone" data-zone="5" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
-          <rect x="240" y="73.3"  width="80" height="53.4" class="zone-cell target-zone" data-zone="6" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
-          <rect x="80"  y="126.7" width="80" height="53.3" class="zone-cell target-zone" data-zone="7" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
-          <rect x="160" y="126.7" width="80" height="53.3" class="zone-cell target-zone" data-zone="8" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
-          <rect x="240" y="126.7" width="80" height="53.3" class="zone-cell target-zone" data-zone="9" stroke="rgba(13,27,46,0.6)" stroke-width="2"/>
-        </g>
-        <g id="targetLabels" style="pointer-events:none">
-          <text x="120" y="52"  class="zone-value" data-zlabel="1" text-anchor="middle">1</text>
-          <text x="200" y="52"  class="zone-value" data-zlabel="2" text-anchor="middle">2</text>
-          <text x="280" y="52"  class="zone-value" data-zlabel="3" text-anchor="middle">3</text>
-          <text x="120" y="105" class="zone-value" data-zlabel="4" text-anchor="middle">4</text>
-          <text x="200" y="105" class="zone-value" data-zlabel="5" text-anchor="middle">5</text>
-          <text x="280" y="105" class="zone-value" data-zlabel="6" text-anchor="middle">6</text>
-          <text x="120" y="158" class="zone-value" data-zlabel="7" text-anchor="middle">7</text>
-          <text x="200" y="158" class="zone-value" data-zlabel="8" text-anchor="middle">8</text>
-          <text x="280" y="158" class="zone-value" data-zlabel="9" text-anchor="middle">9</text>
-        </g>
-
-        <!-- TORRAUM: r=120 (Endpunkte an den Torpfosten) -->
-        <path d="M 80 180 A 120 120 0 0 0 320 180 Z" fill="#1e4fa8"/>
-        <path d="M 80 180 A 120 120 0 0 0 320 180" fill="none" stroke="#4a8fe8" stroke-width="1.5"/>
-
-        <!-- WURFZONEN: 5 nah (A-E, r=120→200) + 3 fern (F-H, r=200→Feldrand) -->
-        <g id="shooterZones">
-          <path d="M 80 180 A 120 120 0 0 0 103 251 L 38 298 A 200 200 0 0 1 0 180 Z"    class="zone-cell shooter-zone" data-zone="A" stroke="var(--bg)" stroke-width="2"/>
-          <path d="M 103 251 A 120 120 0 0 0 163 294 L 138 370 A 200 200 0 0 1 38 298 Z"  class="zone-cell shooter-zone" data-zone="B" stroke="var(--bg)" stroke-width="2"/>
-          <path d="M 163 294 A 120 120 0 0 0 237 294 L 262 370 A 200 200 0 0 1 138 370 Z" class="zone-cell shooter-zone" data-zone="C" stroke="var(--bg)" stroke-width="2"/>
-          <path d="M 237 294 A 120 120 0 0 0 297 251 L 362 298 A 200 200 0 0 1 262 370 Z" class="zone-cell shooter-zone" data-zone="D" stroke="var(--bg)" stroke-width="2"/>
-          <path d="M 297 251 A 120 120 0 0 0 320 180 L 400 180 A 200 200 0 0 1 362 298 Z" class="zone-cell shooter-zone" data-zone="E" stroke="var(--bg)" stroke-width="2"/>
-          <path d="M 0 180 A 200 200 0 0 0 100 353 L 20 460 L 0 460 Z"                    class="zone-cell shooter-zone" data-zone="F" stroke="var(--bg)" stroke-width="2"/>
-          <path d="M 100 353 A 200 200 0 0 0 300 353 L 380 460 L 20 460 Z"                class="zone-cell shooter-zone" data-zone="G" stroke="var(--bg)" stroke-width="2"/>
-          <path d="M 300 353 A 200 200 0 0 0 400 180 L 400 460 L 380 460 Z"               class="zone-cell shooter-zone" data-zone="H" stroke="var(--bg)" stroke-width="2"/>
-          <!-- 7m: wählbar innerhalb Torraum -->
-          <circle cx="200" cy="243" r="24" class="zone-cell shooter-zone" data-zone="7m" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
-        </g>
-
-        <g style="pointer-events:none">
-          <text x="200" y="248" text-anchor="middle" font-size="10" font-weight="800" fill="rgba(255,255,255,0.7)">7m</text>
-          <text x="44"  y="230" class="zone-letter" text-anchor="middle">LA</text>
-          <text x="82"  y="322" class="zone-letter" text-anchor="middle">KL</text>
-          <text x="200" y="336" class="zone-letter" text-anchor="middle">KM</text>
-          <text x="318" y="322" class="zone-letter" text-anchor="middle">KR</text>
-          <text x="356" y="230" class="zone-letter" text-anchor="middle">RA</text>
-          <text x="28"  y="415" class="zone-letter" text-anchor="middle">HL</text>
-          <text x="200" y="435" class="zone-letter" text-anchor="middle">HM</text>
-          <text x="372" y="415" class="zone-letter" text-anchor="middle">HR</text>
-        </g>
-        <text x="14" y="456" fill="var(--text-dim)" font-size="9">LA/RA: Außen · KL/KM/KR: Kreis · HL/HM/HR: Halbfeld · 7m</text>
-      </svg>
-    </div>
-
-    <!-- Selektion Anzeige -->
-    <div style="width:100%;padding:2px 0 4px;text-align:center;font-size:13px;color:var(--text-dim);min-height:20px" id="selectionDisplay">
-      👆 Tippe Wurfzone → Torzone → Ausgang
-    </div>
-
-    <!-- Outcome Buttons -->
-    <div class="outcome-row" id="outcomeRow">
-      <button class="outcome-btn btn-save" id="btnSave" disabled>🧤 GEHALTEN</button>
-      <button class="outcome-btn btn-goal" id="btnGoal" disabled>⚽ TOR</button>
-    </div>
-
-    <!-- Körperteil (Schritt 4, nur bei Gehalten) -->
-    <div class="bodypart-row" id="bodypartRow">
-      <div class="bodypart-main">
-        <button class="bodypart-btn" data-part="hand">🤚 Hand</button>
-        <button class="bodypart-btn" data-part="fuss">🦵 Fuß</button>
-        <button class="bodypart-btn" data-part="koerper">💪 Körper</button>
-      </div>
-      <div class="bodypart-detail" id="bodypartDetail" style="display:none">
-        <button class="bodypart-detail-btn" id="btnHandTief" data-detail="tief">Hand tief</button>
-        <button class="bodypart-detail-btn" id="btnFussHoch" data-detail="hoch">Fuß hoch</button>
-      </div>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="action-row">
-      <button class="btn-reset" id="btnReset">↺ Zurücksetzen</button>
-      <button class="btn-save-entry" id="btnSubmit" disabled>✓ Shot eintragen</button>
-    </div>
-
-    <!-- Mini Stats -->
-    <div class="stats-summary" id="statsSummary">
-      <div class="stat-card"><div class="stat-value saves" id="statSaves">0</div><div class="stat-label">Gehalten</div></div>
-      <div class="stat-card"><div class="stat-value goals" id="statGoals">0</div><div class="stat-label">Tore</div></div>
-      <div class="stat-card"><div class="stat-value" id="statPct">—%</div><div class="stat-label">Save%</div></div>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN 2: STATS ===== -->
-  <div class="screen" id="screenStats">
-    <div class="scroll-area">
-      <div class="title-row">
-        <span class="title-main">Statistiken</span>
-      </div>
-
-      <!-- Haupt-Heatmap: Tor + Wurfzonen (wie Referenz) -->
-      <div class="field-container" id="statsFieldContainer" style="margin-top:6px">
-        <svg viewBox="0 0 400 460" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="postStripes2" width="16" height="16" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-              <rect width="16" height="8" fill="var(--accent)"/>
-              <rect y="8" width="16" height="8" fill="#fff"/>
-            </pattern>
-            <pattern id="netPattern2" width="10" height="10" patternUnits="userSpaceOnUse">
-              <path d="M0,0 L10,10 M10,0 L0,10" stroke="rgba(255,255,255,0.10)" stroke-width="0.6"/>
-            </pattern>
-          </defs>
-          <rect width="400" height="460" fill="var(--bg)" rx="10"/>
-          <rect x="68"  y="8" width="12"  height="172" fill="url(#postStripes2)" rx="5"/>
-          <rect x="320" y="8" width="12"  height="172" fill="url(#postStripes2)" rx="5"/>
-          <rect x="68"  y="8" width="264" height="12"  fill="url(#postStripes2)" rx="5"/>
-          <line x1="80" y1="180" x2="320" y2="180" stroke="#fff" stroke-width="2.5"/>
-          <rect x="80" y="20" width="240" height="160" fill="url(#netPattern2)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-          <rect x="80" y="20" width="240" height="160" fill="none" stroke="#fff" stroke-width="1.5"/>
-
-          <g id="statsTargetZones">
-            <rect x="80"  y="20"    width="80" height="53.3" class="stat-zone" data-zone="1" stroke="var(--bg)" stroke-width="2"/>
-            <rect x="160" y="20"    width="80" height="53.3" class="stat-zone" data-zone="2" stroke="var(--bg)" stroke-width="2"/>
-            <rect x="240" y="20"    width="80" height="53.3" class="stat-zone" data-zone="3" stroke="var(--bg)" stroke-width="2"/>
-            <rect x="80"  y="73.3"  width="80" height="53.4" class="stat-zone" data-zone="4" stroke="var(--bg)" stroke-width="2"/>
-            <rect x="160" y="73.3"  width="80" height="53.4" class="stat-zone" data-zone="5" stroke="var(--bg)" stroke-width="2"/>
-            <rect x="240" y="73.3"  width="80" height="53.4" class="stat-zone" data-zone="6" stroke="var(--bg)" stroke-width="2"/>
-            <rect x="80"  y="126.7" width="80" height="53.3" class="stat-zone" data-zone="7" stroke="var(--bg)" stroke-width="2"/>
-            <rect x="160" y="126.7" width="80" height="53.3" class="stat-zone" data-zone="8" stroke="var(--bg)" stroke-width="2"/>
-            <rect x="240" y="126.7" width="80" height="53.3" class="stat-zone" data-zone="9" stroke="var(--bg)" stroke-width="2"/>
-          </g>
-          <g id="statsTargetLabels" style="pointer-events:none">
-            <text x="120" y="40"  class="zone-value" text-anchor="middle" data-zsave="1"></text>
-            <text x="120" y="54"  class="zone-frac"  text-anchor="middle" data-zfrac="1"></text>
-            <text x="200" y="40"  class="zone-value" text-anchor="middle" data-zsave="2"></text>
-            <text x="200" y="54"  class="zone-frac"  text-anchor="middle" data-zfrac="2"></text>
-            <text x="280" y="40"  class="zone-value" text-anchor="middle" data-zsave="3"></text>
-            <text x="280" y="54"  class="zone-frac"  text-anchor="middle" data-zfrac="3"></text>
-            <text x="120" y="93"  class="zone-value" text-anchor="middle" data-zsave="4"></text>
-            <text x="120" y="107" class="zone-frac"  text-anchor="middle" data-zfrac="4"></text>
-            <text x="200" y="93"  class="zone-value" text-anchor="middle" data-zsave="5"></text>
-            <text x="200" y="107" class="zone-frac"  text-anchor="middle" data-zfrac="5"></text>
-            <text x="280" y="93"  class="zone-value" text-anchor="middle" data-zsave="6"></text>
-            <text x="280" y="107" class="zone-frac"  text-anchor="middle" data-zfrac="6"></text>
-            <text x="120" y="147" class="zone-value" text-anchor="middle" data-zsave="7"></text>
-            <text x="120" y="161" class="zone-frac"  text-anchor="middle" data-zfrac="7"></text>
-            <text x="200" y="147" class="zone-value" text-anchor="middle" data-zsave="8"></text>
-            <text x="200" y="161" class="zone-frac"  text-anchor="middle" data-zfrac="8"></text>
-            <text x="280" y="147" class="zone-value" text-anchor="middle" data-zsave="9"></text>
-            <text x="280" y="161" class="zone-frac"  text-anchor="middle" data-zfrac="9"></text>
-          </g>
-
-          <path d="M 80 180 A 120 120 0 0 0 320 180 Z" fill="#1e4fa8"/>
-          <path d="M 80 180 A 120 120 0 0 0 320 180" fill="none" stroke="#4a8fe8" stroke-width="1.5"/>
-
-          <g id="statsShooterZones">
-            <path d="M 80 180 A 120 120 0 0 0 103 251 L 38 298 A 200 200 0 0 1 0 180 Z"    class="stat-zone" data-zone="A" stroke="var(--bg)" stroke-width="2"/>
-            <path d="M 103 251 A 120 120 0 0 0 163 294 L 138 370 A 200 200 0 0 1 38 298 Z"  class="stat-zone" data-zone="B" stroke="var(--bg)" stroke-width="2"/>
-            <path d="M 163 294 A 120 120 0 0 0 237 294 L 262 370 A 200 200 0 0 1 138 370 Z" class="stat-zone" data-zone="C" stroke="var(--bg)" stroke-width="2"/>
-            <path d="M 237 294 A 120 120 0 0 0 297 251 L 362 298 A 200 200 0 0 1 262 370 Z" class="stat-zone" data-zone="D" stroke="var(--bg)" stroke-width="2"/>
-            <path d="M 297 251 A 120 120 0 0 0 320 180 L 400 180 A 200 200 0 0 1 362 298 Z" class="stat-zone" data-zone="E" stroke="var(--bg)" stroke-width="2"/>
-            <path d="M 0 180 A 200 200 0 0 0 100 353 L 20 460 L 0 460 Z"                    class="stat-zone" data-zone="F" stroke="var(--bg)" stroke-width="2"/>
-            <path d="M 100 353 A 200 200 0 0 0 300 353 L 380 460 L 20 460 Z"                class="stat-zone" data-zone="G" stroke="var(--bg)" stroke-width="2"/>
-            <path d="M 300 353 A 200 200 0 0 0 400 180 L 400 460 L 380 460 Z"               class="stat-zone" data-zone="H" stroke="var(--bg)" stroke-width="2"/>
-            <circle cx="200" cy="243" r="24" class="stat-zone" data-zone="7m" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
-          </g>
-
-          <g id="statsShooterLabels" style="pointer-events:none">
-            <text x="44"  y="226" class="zone-value" text-anchor="middle" font-size="11" data-zsave="A"></text>
-            <text x="44"  y="238" class="zone-frac"  text-anchor="middle" data-zfrac="A"></text>
-            <text x="82"  y="318" class="zone-value" text-anchor="middle" font-size="11" data-zsave="B"></text>
-            <text x="82"  y="330" class="zone-frac"  text-anchor="middle" data-zfrac="B"></text>
-            <text x="200" y="332" class="zone-value" text-anchor="middle" font-size="11" data-zsave="C"></text>
-            <text x="200" y="344" class="zone-frac"  text-anchor="middle" data-zfrac="C"></text>
-            <text x="318" y="318" class="zone-value" text-anchor="middle" font-size="11" data-zsave="D"></text>
-            <text x="318" y="330" class="zone-frac"  text-anchor="middle" data-zfrac="D"></text>
-            <text x="356" y="226" class="zone-value" text-anchor="middle" font-size="11" data-zsave="E"></text>
-            <text x="356" y="238" class="zone-frac"  text-anchor="middle" data-zfrac="E"></text>
-            <text x="28"  y="410" class="zone-value" text-anchor="middle" font-size="11" data-zsave="F"></text>
-            <text x="28"  y="422" class="zone-frac"  text-anchor="middle" data-zfrac="F"></text>
-            <text x="200" y="425" class="zone-value" text-anchor="middle" font-size="11" data-zsave="G"></text>
-            <text x="200" y="437" class="zone-frac"  text-anchor="middle" data-zfrac="G"></text>
-            <text x="372" y="410" class="zone-value" text-anchor="middle" font-size="11" data-zsave="H"></text>
-            <text x="372" y="422" class="zone-frac"  text-anchor="middle" data-zfrac="H"></text>
-            <!-- 7m stats -->
-            <text x="200" y="237" class="zone-value" text-anchor="middle" font-size="11" data-zsave="7m"></text>
-            <text x="200" y="249" class="zone-frac"  text-anchor="middle" data-zfrac="7m"></text>
-          </g>
-        </svg>
-      </div>
-
-      <!-- Effizienz Fußzeile -->
-      <div class="eff-bar">
-        <span class="eff-label">Effizienz Torwart</span>
-        <span class="eff-value">
-          <span class="eff-pct" id="effPct">—%</span>
-          <span class="eff-frac" id="effFrac">0/0</span>
-        </span>
-      </div>
-
-      <div class="chart-header" style="margin-top:10px">Torzonen-Verteilung</div>
-      <div class="chart-wrapper"><canvas id="chartZones"></canvas></div>
-
-      <div class="chart-header" style="margin-top:12px">Letzte Shots</div>
-      <div class="history-list" id="historyList">
-        <div class="history-empty">Noch keine Shots erfasst</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN 3: VERLAUF ===== -->
-  <div class="screen" id="screenHistory">
-    <div class="scroll-area">
-      <div class="title-row" style="margin-bottom:8px">
-        <span class="title-main">Spiele</span>
-        <span id="btnNewGame" style="color:var(--gold);font-size:13px;font-weight:700;cursor:pointer">+ Neu</span>
-      </div>
-      <div id="sessionList"><div class="history-empty">Noch keine Spiele gespeichert</div></div>
-    </div>
-  </div>
+<!-- SCREEN 3: SPIELE -->
+<div class="screen active" id="screenHistory"><div class="scroll-area">
+<div class="s-filter"><button class="s-filter-btn esv active" data-filter="club" data-val="ESV">ESV</button><button class="s-filter-btn hga" data-filter="club" data-val="HGA">HGA</button>
+<span style="color:var(--border);padding:0 2px">|</span>
+<button class="s-filter-btn active" data-filter="type" data-val="all">Alle</button>
+<button class="s-filter-btn" data-filter="type" data-val="heim">🏠 Heim</button><button class="s-filter-btn" data-filter="type" data-val="auswaerts">✈️ Auswärts</button>
+<button class="s-filter-btn" data-filter="type" data-val="freundschaft">🤝 Freundsch.</button><button class="s-filter-btn" data-filter="type" data-val="training">🏃 Training</button>
+</div>
+<div class="s-actions" id="sessionActions" style="display:none">
+<button class="btn-close" id="btnCloseSessions">🔒 Abschließen</button><button class="btn-del" id="btnDeleteSessions">🗑 Löschen</button><button class="btn-combine" id="btnCombineSessions">📊 Kombinieren</button>
+</div>
+<div id="sessionList"><div class="history-empty">Keine Spiele</div></div>
+</div></div>
 </main>
 
-<!-- Tab Bar (zunächst versteckt, nach Session-Start sichtbar) -->
-<div class="tab-bar" id="tabBar" style="display:none">
-  <button class="tab-btn" data-screen="screenInput">
-    <span class="tab-icon">🎯</span> Erfassen
-  </button>
-  <button class="tab-btn" data-screen="screenStats">
-    <span class="tab-icon">📊</span> Auswertung
-  </button>
-  <button class="tab-btn" data-screen="screenHistory">
-    <span class="tab-icon">📋</span> Spiele
-  </button>
+<div class="tab-bar">
+<button class="tab-btn" data-screen="screenInput"><span class="tab-icon">🎯</span> Erfassen</button>
+<button class="tab-btn" data-screen="screenStats"><span class="tab-icon">📊</span> Auswertung</button>
+<button class="tab-btn active" data-screen="screenHistory"><span class="tab-icon">📋</span> Spiele</button>
 </div>
 
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Keeper Switch Modal -->
+<div class="keeper-switch" id="keeperSwitchModal" onclick="if(event.target===this)closeKeeperSwitch()">
+<div class="keeper-switch-box"><h3>🧤 Torhüter wechseln</h3>
+<div id="keeperSwitchList"></div>
+<button class="k-switch-close" onclick="closeKeeperSwitch()">Abbrechen</button>
+</div></div>
+
+<div class="mask" id="legendMask" onclick="if(event.target===this)closeLegend()">
+<div class="mbox"><h3>Haltequote-Einstufung (B-Jugend)</h3>
+<div class="mrow"><span class="sw" style="background:#d9534f"></span><span class="rng">&lt; 20%</span><span class="lbl">– Ausbaufähig</span></div>
+<div class="mrow"><span class="sw" style="background:#e87a3a"></span><span class="rng">20–24%</span><span class="lbl">– Entwicklungsfähig</span></div>
+<div class="mrow"><span class="sw" style="background:#f4b942"></span><span class="rng">25–29%</span><span class="lbl">– Solide</span></div>
+<div class="mrow"><span class="sw" style="background:#2f9e6e"></span><span class="rng">30–35%</span><span class="lbl">– Stark</span></div>
+<div class="mrow"><span class="sw" style="background:#3a7ae8"></span><span class="rng">&gt; 35%</span><span class="lbl">– Elite</span></div>
+<div class="mhint">Abgeleitet aus HBL (30–35% ∅).<br><strong>Mind. 10 Würfe</strong> für valide Einstufung.</div>
+<button class="mclose" onclick="closeLegend()">Verstanden</button>
+</div></div>
+
 <script>
-/* =====================================================
-   GK-Analytics – v0.3 (Supabase + PWA)
-   ===================================================== */
-
-// ---- Supabase ----
-const _SB_URL  = 'https://viifhaixfteetqrfyuul.supabase.co';
-const _SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpaWZoYWl4ZnRlZXRxcmZ5dXVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMTE5MTIsImV4cCI6MjA4NDU4NzkxMn0.kWmw1XUz8-nb6HmeEw4bVfZ-79vPCboPYC1RWtCXQ7M';
-const sb = supabase.createClient(_SB_URL, _SB_ANON);
-
-async function syncToSupabase(session) {
-  if (!navigator.onLine || !session) return false;
-  try {
-    const { error: sErr } = await sb.from('handball_sessions').upsert({
-      id: session.id,
-      date: session.date,
-      type: session.type,
-      opponent: session.opponent || ''
-    }, { onConflict: 'id' });
-    if (sErr) throw sErr;
-
-    const shots = session.shots.map(s => ({
-      id: s.id,
-      session_id: session.id,
-      shooter_zone: s.shooterZone,
-      target_zone: s.targetZone,
-      outcome: s.outcome,
-      is_1v1: s.is1v1 || false,
-      body_part: s.bodyPart || null,
-      body_detail: s.bodyDetail || null,
-      shot_timestamp: s.timestamp
-    }));
-    if (shots.length > 0) {
-      const { error: shErr } = await sb.from('handball_shots').upsert(shots, { onConflict: 'id' });
-      if (shErr) throw shErr;
-    }
+const $=id=>document.getElementById(id), SB_URL='https://viifhaixfteetqrfyuul.supabase.co', SB_ANON='eyJhbG...GL2E';
+let sb=null; try{sb=supabase.createClient(SB_URL,SB_ANON)}catch(e){}
+async function syncToSupabase(session){
+  if(!navigator.onLine||!session||session.closed) return false;
+  try{
+    const{error:sErr}=await sb.from('handball_sessions').upsert({id:session.id,date:session.date,type:session.type,club:session.club,opponent:session.opponent||'',half_length:session.halfLength||30,closed:!!session.closed,keepers:session.keepers||[],keeper_changes:session.keeperChanges||[]},{onConflict:'id'});
+    if(sErr)throw sErr;
+    const shots=session.shots.map(s=>({id:s.id,session_id:session.id,shooter_zone:s.shooterZone,target_zone:s.targetZone,outcome:s.outcome,opponent_goal:s.opponentGoal||false,is_1v1:s.is1v1||false,body_part:s.bodyPart||null,body_detail:s.bodyDetail||null,game_minute:s.gameMinute||0,keeper_id:s.keeperId||'',shot_timestamp:s.timestamp||new Date().toISOString()}));
+    if(shots.length>0){const{error:shErr}=await sb.from('handball_shots').upsert(shots,{onConflict:'id'});if(shErr)throw shErr}
     return true;
-  } catch(e) {
-    console.error('Supabase sync:', e);
-    return false;
-  }
+  }catch(e){console.error('Supabase:',e);return false}
 }
+function updateSyncStatus(ok){const el=$('syncStatus');if(el)el.innerHTML=ok?'<span class="dot dot-green"></span>Synced':'<span class="dot dot-gray"></span>Offline'}
 
-function updateSyncStatus(ok) {
-  const el = document.getElementById('syncStatus');
-  if (!el) return;
-  el.innerHTML = ok
-    ? '<span class="dot dot-green"></span>Synced'
-    : '<span class="dot dot-gray"></span>Offline';
-}
+let currentSession=null, selectedSessionIds=new Set(), filterClub='ESV', filterType='all', analysisMode=false, analysisShots=[], activeKeeperFilter='all';
+let gameClock={running:false,minute:0,intervalId:null};
 
-// ---- Session Management ----
-let currentSession = null;
-function loadSessions(){ return JSON.parse(localStorage.getItem('gk_sessions')||'[]'); }
-function saveSessions(arr){ localStorage.setItem('gk_sessions', JSON.stringify(arr)); }
+function loadSessions(){return JSON.parse(localStorage.getItem('gk_sessions')||'[]')}
+function saveSessions(arr){localStorage.setItem('gk_sessions',JSON.stringify(arr))}
 function saveCurrentSession(){
-  if(!currentSession) return;
-  currentSession.shots = [...state.shots];
-  const all = loadSessions();
-  const idx = all.findIndex(s => s.id === currentSession.id);
-  if(idx >= 0) all[idx] = currentSession; else all.push(currentSession);
-  saveSessions(all);
-  syncToSupabase(currentSession).then(ok => updateSyncStatus(ok));
+  if(!currentSession||currentSession.closed) return;
+  currentSession.shots=[...state.shots];
+  const all=loadSessions(), idx=all.findIndex(s=>s.id===currentSession.id);
+  if(idx>=0) all[idx]=currentSession; else all.push(currentSession);
+  saveSessions(all); syncToSupabase(currentSession).then(ok=>updateSyncStatus(ok));
 }
 
-// Setup DOM
-const setupDateEl = document.getElementById('setupDate');
-const setupOpponentEl = document.getElementById('setupOpponent');
-const opponentField = document.getElementById('opponentField');
-const btnStartSession = document.getElementById('btnStartSession');
-const tabBar = document.getElementById('tabBar');
+const ZONE_LABEL={1:'OR',2:'OM',3:'OL',4:'MR',5:'MM',6:'ML',7:'UR',8:'UM',9:'UL'};
+const SHOOTER_LABEL={'A':'LA','B':'KL','C':'KM','D':'KR','E':'RA','F':'HL','G':'HM','H':'HR','7m':'7m'};
+const TYPE_LABEL={heim:'Heimspiel',auswaerts:'Auswärtsspiel',freundschaft:'Freundschaftsspiel',training:'Training'};
+const TYPE_EMOJI={heim:'🏠',auswaerts:'✈️',freundschaft:'🤝',training:'🏃'};
+const SP_TIERS=[
+  {min:35,label:'Elite',color:'#3a7ae8',bg:'rgba(58,122,232,0.25)',desc:'Weltklasse'},
+  {min:30,label:'Stark',color:'#2f9e6e',bg:'rgba(47,158,110,0.25)',desc:'Überdurchschnittlich'},
+  {min:25,label:'Solide',color:'#f4b942',bg:'rgba(244,185,66,0.25)',desc:'Durchschnitt'},
+  {min:20,label:'Entwicklungsfähig',color:'#e87a3a',bg:'rgba(232,122,58,0.25)',desc:'Unterer Durchschnitt'},
+  {min:0,label:'Ausbaufähig',color:'#d9534f',bg:'rgba(217,83,79,0.25)',desc:'Handlungsbedarf'}
+];
+const MIN_SHOTS=10;
+function classifySP(pct,total){
+  if(total<MIN_SHOTS)return{label:'—',color:'var(--text-dim)',bg:'var(--q-empty)',desc:'Mind. '+MIN_SHOTS+' Würfe'};
+  for(const t of SP_TIERS){if(pct>=t.min)return t}return SP_TIERS[4];
+}
+function qualityColor(saves,total){if(total<5)return'var(--q-empty)';return classifySP(Math.round(saves/total*100),total).bg}
 
-setupDateEl.value = new Date().toISOString().slice(0,10);
-let setupType = 'heim';
-document.querySelectorAll('.setup-type-btn').forEach(btn => {
-  btn.addEventListener('click', function(){
-    document.querySelectorAll('.setup-type-btn').forEach(b => b.classList.remove('selected'));
-    this.classList.add('selected');
-    setupType = this.dataset.type;
-    opponentField.style.display = setupType === 'training' ? 'none' : '';
-  });
-});
+const selDisplay=$('selectionDisplay'), btnSave=$('btnSave'), btnGoal=$('btnGoal'), btnSubmit=$('btnSubmit'), btnReset=$('btnReset');
+const toast=$('toast'), btn1v1=$('btn1v1'), bodypartRow=$('bodypartRow'), bodypartDetail=$('bodypartDetail');
 
-btnStartSession.addEventListener('click', () => {
-  currentSession = {
-    id: Date.now().toString(),
-    date: setupDateEl.value,
-    type: setupType,
-    opponent: setupType === 'training' ? '' : (setupOpponentEl.value.trim() || 'Unbekannt'),
-    shots: [],
-  };
-  state.shots = [];
-  fullReset();
-  updateStats();
-  tabBar.style.display = '';
+const state={shots:[],step:1,shooterZone:null,targetZone:null,outcome:null,is1v1:false,bodyPart:null,bodyDetail:null};
+
+// GAME CLOCK (setInterval 1s, exakter Sekunden-Takt)
+function startClock(){
+  if(gameClock.running)return;
+  gameClock.running=true;
+  $('btnClock').textContent='⏸️';
+  const halfMax=currentSession?currentSession.halfLength*60:1800;
+  gameClock.intervalId=setInterval(function(){
+    if(!gameClock.running){clearInterval(gameClock.intervalId);gameClock.intervalId=null;return}
+    gameClock.minute+=1/60;
+    if(gameClock.minute>=halfMax){gameClock.minute=halfMax;pauseClock();showToast('⏱ Halbzeit!','success')}
+    updateClockDisplay();
+  },1000);
+}
+function pauseClock(){gameClock.running=false;if(gameClock.intervalId){clearInterval(gameClock.intervalId);gameClock.intervalId=null}$('btnClock').textContent='▶️'}
+function toggleClock(){if(gameClock.running)pauseClock();else startClock()}
+function updateClockDisplay(){
+  const m=Math.floor(gameClock.minute), s=Math.floor((gameClock.minute%1)*60);
+  $('gameClock').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+$('btnClock').addEventListener('click',toggleClock);
+
+// SETUP
+const setupDateEl=$('setupDate'), setupOpponentEl=$('setupOpponent'), opponentField=$('opponentField'), btnStartSession=$('btnStartSession');
+setupDateEl.value=new Date().toISOString().slice(0,10);
+let setupClub='ESV', setupType='heim', keepers=[{id:'k1',number:1,firstName:'Dominik',lastName:''}], nextKId=2;
+document.querySelectorAll('.setup-club-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-club-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupClub=this.dataset.club})});
+document.querySelectorAll('.setup-type-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-type-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupType=this.dataset.type;opponentField.style.display=setupType==='training'?'none':''})});
+function renderKeeperSetup(){const el=$('keeperList');el.innerHTML=keepers.map((k,i)=>`<div class="setup-keeper-row"><input class="knr" type="number" value="${k.number}" min="1" max="99" onchange="keepers[${i}].number=+this.value"/><input type="text" value="${k.firstName}" placeholder="Vorname" onchange="keepers[${i}].firstName=this.value"/><input type="text" value="${k.lastName}" placeholder="Nachname" onchange="keepers[${i}].lastName=this.value"/><span class="kdel" onclick="if(keepers.length>1){keepers.splice(${i},1);renderKeeperSetup()}">✕</span></div>`).join('')}
+renderKeeperSetup();
+$('btnAddKeeper').addEventListener('click',()=>{keepers.push({id:'k'+nextKId++,number:keepers.length+1,firstName:'',lastName:''});renderKeeperSetup()});
+btnStartSession.addEventListener('click',()=>{
+  if(currentSession&&state.shots.length>0)saveCurrentSession();
+  const half=Math.max(1,parseInt($('setupHalf').value)||30);
+  currentSession={id:Date.now().toString(),date:setupDateEl.value,club:setupClub,type:setupType,opponent:setupType==='training'?'':(setupOpponentEl.value.trim()||'Unbekannt'),halfLength:half,keepers:keepers.map(k=>({...k})),keeperChanges:[{keeperId:keepers[0].id,minute:0}],shots:[],closed:false};
+  state.shots=[]; fullReset(); gameClock={running:false,minute:0,intervalId:null}; activeKeeperFilter='all';
+  state.activeKeeperId=keepers[0].id; analysisMode=false; analysisShots=[];
+  updateActiveKeeperDisplay(); updateScore(); updateStats();
+  $('btnOppGoal').textContent='Tor '+setupClub;
   showScreen('screenInput');
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.tab-btn[data-screen="screenInput"]').classList.add('active');
-  updateSessionHeader();
+  $('statusSession').textContent=`${TYPE_EMOJI[setupType]}${setupClub}${currentSession.opponent?' · '+currentSession.opponent:''}`;
+  $('headerNewGame').textContent='⚙️'; pauseClock();
 });
 
-document.getElementById('btnNewGame').addEventListener('click', () => {
-  if(currentSession && state.shots.length > 0) saveCurrentSession();
-  currentSession = null;
-  state.shots = [];
-  tabBar.style.display = 'none';
-  showScreen('screenSetup');
+$('headerNewGame').addEventListener('click',()=>{
+  if(currentSession&&!currentSession.closed&&state.shots.length>0)saveCurrentSession();
+  currentSession=null; analysisMode=false; analysisShots=[]; state.shots=[]; pauseClock();
+  renderSessionList(); showScreen('screenSetup');
 });
 
-function showScreen(id){
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
-
-const TYPE_LABEL = {heim:'Heimspiel', auswaerts:'Auswärtsspiel', freundschaft:'Freundschaftsspiel', training:'Training'};
-const TYPE_EMOJI = {heim:'🏠', auswaerts:'✈️', freundschaft:'🤝', training:'🏃'};
-
-function updateSessionHeader(){
-  if(!currentSession) return;
-  const opp = currentSession.opponent ? ` · ${currentSession.opponent}` : '';
-  $('statusSession').textContent = `${TYPE_EMOJI[currentSession.type]}${opp} · ${state.shots.length} Shots`;
-}
-
-function renderSessionList(){
-  const all = loadSessions();
-  const el = $('sessionList');
-  if(all.length === 0){ el.innerHTML = '<div class="history-empty">Noch keine Spiele gespeichert</div>'; return; }
-  el.innerHTML = [...all].reverse().map(s => {
-    const saves = s.shots.filter(sh => sh.outcome==='saved').length;
-    const total = s.shots.length;
-    const pct = total > 0 ? Math.round(saves/total*100)+'%' : '—%';
-    const d = new Date(s.date+'T12:00:00');
-    const dateStr = d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});
-    const opp = s.opponent ? ` vs. ${s.opponent}` : '';
-    return `<div class="session-item ${s.type}" onclick="viewSession('${s.id}')">
-      <span class="si-icon">${TYPE_EMOJI[s.type]}</span>
-      <span class="si-info">
-        <div class="si-title">${TYPE_LABEL[s.type]}${opp}</div>
-        <div class="si-sub">${dateStr} · ${total} Shots</div>
-      </span>
-      <span class="si-stat">${pct}</span>
-    </div>`;
+// KEEPER SWITCH
+function openKeeperSwitch(){
+  if(!currentSession||!currentSession.keepers||currentSession.closed)return;
+  const el=$('keeperSwitchList');
+  el.innerHTML=currentSession.keepers.map(k=>{
+    const isActive=state.activeKeeperId===k.id;
+    return `<div class="keeper-switch-item${isActive?' active':''}" onclick="selectKeeper('${k.id}')"><span class="kn">#${k.number}</span><span class="knm">${k.firstName}${k.lastName?' '+k.lastName:''}</span>${isActive?' ✓':''}</div>`;
   }).join('');
+  $('keeperSwitchModal').classList.add('open');
+}
+function closeKeeperSwitch(){$('keeperSwitchModal').classList.remove('open')}
+function selectKeeper(id){
+  if(!currentSession||currentSession.closed)return;
+  currentSession.keeperChanges.push({keeperId:id,minute:gameClock.minute});
+  state.activeKeeperId=id; updateActiveKeeperDisplay(); closeKeeperSwitch();
+  showToast('🧤 Wechsel zu #'+(currentSession.keepers.find(k=>k.id===id)||{}).number,'success');
+}
+$('btnActiveKeeper').addEventListener('click',openKeeperSwitch);
+function updateActiveKeeperDisplay(){
+  const k=currentSession&&currentSession.keepers?currentSession.keepers.find(k=>k.id===state.activeKeeperId):null;
+  $('btnActiveKeeper').textContent=k?'🧤 #'+k.number+' '+k.firstName:'🧤 #1';
 }
 
-function viewSession(id){
-  const all = loadSessions();
-  const session = all.find(s => s.id === id);
-  if(!session) return;
-  const backup = state.shots;
-  state.shots = session.shots;
-  updateStats();
-  state.shots = backup;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector('.tab-btn[data-screen="screenStats"]').classList.add('active');
-  showScreen('screenStats');
-}
-
-// ---- State ----
-const state = {
-  shots: [],
-  step: 1,               // 1=shooter, 2=target, 3=outcome, 4=bodypart
-  shooterZone: null,      // 'A'-'H'|'7m'
-  targetZone: null,       // 1-9
-  outcome: null,          // 'saved' | 'goal'
-  is1v1: false,
-  bodyPart: null,         // 'hand'|'fuss'|'koerper'
-  bodyDetail: null,       // 'tief'|'hoch'|null
-};
-
-// ---- DOM refs ----
-const $ = id => document.getElementById(id);
-const selDisplay = $('selectionDisplay');
-const btnSave = $('btnSave'), btnGoal = $('btnGoal'), btnSubmit = $('btnSubmit'), btnReset = $('btnReset');
-const statSaves = $('statSaves'), statGoals = $('statGoals'), statPct = $('statPct');
-const toast = $('toast');
-const shotCounter = $('shotCounter');
-const btn1v1 = $('btn1v1');
-const bodypartRow = $('bodypartRow');
-const bodypartDetail = $('bodypartDetail');
-
-// ---- Ampel-Farbe nach Save-Quote ----
-function qualityColor(saves, total){
-  if(total === 0) return 'var(--q-empty)';
-  const ratio = saves / total;
-  if(ratio >= 0.67) return 'var(--q-good)';
-  if(ratio >= 0.34) return 'var(--q-mid)';
-  return 'var(--q-bad)';
-}
-
-// ---- Toast ----
-let toastTimer;
-function showToast(msg, type=''){
-  toast.textContent = msg;
-  toast.className = 'toast show ' + type;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
-}
-
-// ---- 1v1 Toggle ----
-btn1v1.addEventListener('click', () => {
-  state.is1v1 = !state.is1v1;
-  btn1v1.classList.toggle('selected', state.is1v1);
-});
-
-// ---- Zone selection (SVG click, Eingabe-Screen) ----
-document.querySelectorAll('#screenInput .zone-cell').forEach(el => {
-  el.addEventListener('click', function(){
-    const isShooter = this.classList.contains('shooter-zone');
-    const isTarget = this.classList.contains('target-zone');
-    const zone = this.dataset.zone;
-
-    if(isShooter && state.step === 1){
-      clearSelection();
-      state.shooterZone = zone;
-      highlightShooter(zone);
-      state.step = 2;
-      updateSteps();
-      selDisplay.textContent = `📍 Wurfzone ${zone} — jetzt Torzone tippen`;
-      return;
-    }
-
-    if(isTarget && state.step === 2){
-      // de-highlight previous target
-      document.querySelectorAll('#screenInput .target-zone').forEach(e => e.style.fill = 'var(--q-empty)');
-      state.targetZone = parseInt(zone);
-      this.style.fill = 'rgba(232,73,58,0.55)';
-      state.step = 3;
-      updateSteps();
-      enableOutcome(true);
-      selDisplay.textContent = `🎯 Wurf ${state.shooterZone} → Zone ${zone} — Ausgang wählen`;
-      return;
-    }
-
-    if(state.step >= 3 && isShooter){
-      resetToStep(1);
-      state.shooterZone = zone;
-      highlightShooter(zone);
-      state.step = 2;
-      updateSteps();
-      selDisplay.textContent = `📍 Wurfzone ${zone} — jetzt Torzone tippen`;
-    }
-  });
-});
-
-function highlightShooter(zone){
-  document.querySelectorAll('#screenInput .shooter-zone').forEach(el => {
-    el.style.fill = el.dataset.zone === zone ? 'rgba(244,185,66,0.5)' : 'var(--q-empty)';
-  });
-}
-
-// ---- Outcome Buttons ----
-btnSave.addEventListener('click', () => selectOutcome('saved'));
-btnGoal.addEventListener('click', () => selectOutcome('goal'));
-
-function selectOutcome(val){
-  if(state.step < 3) return;
-  state.outcome = val;
-  state.bodyPart = null;
-  state.bodyDetail = null;
-  btnSave.classList.toggle('selected', val === 'saved');
-  btnGoal.classList.toggle('selected', val === 'goal');
-
-  if(val === 'saved'){
-    bodypartRow.classList.add('visible');
-    bodypartDetail.style.display = 'none';
-    document.querySelectorAll('.bodypart-btn').forEach(b => b.classList.remove('selected'));
-    document.querySelectorAll('.bodypart-detail-btn').forEach(b => b.classList.remove('selected'));
-    btnSubmit.disabled = true;
-    state.step = 4;
-    updateSteps();
-    selDisplay.textContent = '🧤 Gehalten — mit welchem Körperteil?';
-  } else {
-    bodypartRow.classList.remove('visible');
-    btnSubmit.disabled = false;
-    selDisplay.textContent = '⚽ Tor — jetzt eintragen';
+// SCORE (eigene Tore = Button, gegner Tore = ⚽ TOR)
+function editScore(side){
+  const label=side==='own'?'Eigene Tore:':'Gegner Tore:';
+  const current=side==='own'?state.shots.filter(s=>s.opponentGoal).length:state.shots.filter(s=>s.outcome==='goal'&&!s.opponentGoal).length;
+  const v=prompt(label,current+'');
+  if(v!==null&&!isNaN(v)&&v>=0){
+    const diff=parseInt(v)-current;
+    if(diff>0){for(let i=0;i<diff;i++)state.shots.push({id:'edit_'+Date.now()+'_'+i,shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:side==='own',is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,timestamp:new Date().toISOString()})}
+    updateStats();updateScore();saveCurrentSession();
   }
 }
-
-// ---- Körperteil-Auswahl ----
-document.querySelectorAll('.bodypart-btn').forEach(btn => {
-  btn.addEventListener('click', function(){
-    document.querySelectorAll('.bodypart-btn').forEach(b => b.classList.remove('selected'));
-    this.classList.add('selected');
-    state.bodyPart = this.dataset.part;
-    state.bodyDetail = null;
-    document.querySelectorAll('.bodypart-detail-btn').forEach(b => b.classList.remove('selected'));
-
-    if(state.bodyPart === 'hand'){
-      bodypartDetail.style.display = 'flex';
-      $('btnHandTief').style.display = '';
-      $('btnFussHoch').style.display = 'none';
-    } else if(state.bodyPart === 'fuss'){
-      bodypartDetail.style.display = 'flex';
-      $('btnHandTief').style.display = 'none';
-      $('btnFussHoch').style.display = '';
-    } else {
-      bodypartDetail.style.display = 'none';
-      btnSubmit.disabled = false;
-      selDisplay.textContent = '✅ Körper — jetzt eintragen';
-    }
-    if(state.bodyPart !== 'koerper') selDisplay.textContent = '🤚 Detail wählen oder direkt eintragen';
-    if(state.bodyPart !== 'koerper') btnSubmit.disabled = false;
-  });
-});
-
-document.querySelectorAll('.bodypart-detail-btn').forEach(btn => {
-  btn.addEventListener('click', function(){
-    document.querySelectorAll('.bodypart-detail-btn').forEach(b => b.classList.remove('selected'));
-    this.classList.add('selected');
-    state.bodyDetail = this.dataset.detail;
-    const label = state.bodyPart === 'hand' ? 'Hand tief' : 'Fuß hoch';
-    selDisplay.textContent = `✅ ${label} — jetzt eintragen`;
-  });
-});
-
-function enableOutcome(en){
-  btnSave.disabled = !en;
-  btnGoal.disabled = !en;
+function editClock(){
+  const m=Math.floor(gameClock.minute), s=Math.floor((gameClock.minute%1)*60);
+  const current=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  const v=prompt('Spielzeit (MM:SS):',current);
+  if(v!==null&&v.trim()!==''){
+    const parts=v.split(':');
+    let newMin=parseInt(parts[0]), newSec=parts.length>1?parseInt(parts[1]):0;
+    if(!isNaN(newMin)&&newMin>=0&&!isNaN(newSec)&&newSec>=0&&newSec<60){
+      gameClock.minute=newMin+newSec/60;
+      updateClockDisplay();
+    }else{showToast('⏱ Ungültiges Format (MM:SS)','error')}
+  }
 }
-
-// ---- Submit ----
-btnSubmit.addEventListener('click', () => {
-  if(!state.shooterZone || !state.targetZone || !state.outcome) return;
-
-  const shot = {
-    id: Date.now() + '_' + Math.random().toString(36).slice(2,6),
-    shooterZone: state.shooterZone,
-    targetZone: state.targetZone,
-    outcome: state.outcome,
-    is1v1: state.is1v1,
-    bodyPart: state.bodyPart,
-    bodyDetail: state.bodyDetail,
-    timestamp: new Date().toISOString(),
-  };
-  state.shots.push(shot);
-
-  updateStats();
-  showToast(
-    shot.outcome === 'saved' ? '🧤 Gehalten!' : '⚽ Tor notiert',
-    shot.outcome === 'saved' ? 'success' : 'error'
-  );
-
+function updateScore(){
+  const own=state.shots.filter(s=>s.opponentGoal).length;
+  const opp=state.shots.filter(s=>s.outcome==='goal'&&!s.opponentGoal).length;
+  $('scoreOwn').textContent=own;
+  $('scoreOpp').textContent=opp;
+}
+$('btnOppGoal').addEventListener('click',()=>{
+  if(currentSession&&currentSession.closed){showToast('🔒 Spiel abgeschlossen','error');return}
+  // Log as own team goal (opponentGoal=true = our team scored)
+  state.shots.push({id:'og_'+Date.now(),shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,timestamp:new Date().toISOString()});
+  updateStats(); updateScore(); saveCurrentSession();
+  showToast('⚽ Tor '+(currentSession?currentSession.club:'ESV')+'!','success');
   fullReset();
+  // Ensure clock is running
+  if(!gameClock.running&&!gameClock.intervalId)startClock();
 });
 
-// ---- Reset ----
-btnReset.addEventListener('click', fullReset);
+// 1v1
+btn1v1.addEventListener('click',()=>{state.is1v1=!state.is1v1;btn1v1.classList.toggle('selected',state.is1v1)});
 
-function resetToStep(s){
-  clearSelection();
-  state.step = s;
-  if(s <= 1){ state.shooterZone = null; state.targetZone = null; }
-  if(s <= 2){ state.outcome = null; enableOutcome(false); }
-  if(s <= 3){ state.bodyPart = null; state.bodyDetail = null; bodypartRow.classList.remove('visible'); }
-  btnSubmit.disabled = true;
-  updateSteps();
-  selDisplay.textContent = '👆 Wurfzone tippen';
+// ZONE selection
+document.querySelectorAll('#screenInput .zone-cell').forEach(el=>{
+  el.addEventListener('click',function(){
+    if(currentSession&&currentSession.closed){showToast('🔒 Spiel abgeschlossen','error');return}
+    const isShooter=this.classList.contains('shooter-zone'), isTarget=this.classList.contains('target-zone'), zone=this.dataset.zone;
+    if(isShooter&&state.step===1){clearSelection();state.shooterZone=zone;highlightShooter(zone);state.step=2;const l=SHOOTER_LABEL[zone]||zone;selDisplay.textContent=`📍 ${l} — Torzone tippen`;return}
+    if(isTarget&&state.step===2){document.querySelectorAll('#screenInput .target-zone').forEach(e=>e.style.fill='var(--q-empty)');state.targetZone=parseInt(zone);this.style.fill='rgba(232,73,58,0.55)';state.step=3;enableOutcome(true);const l=SHOOTER_LABEL[state.shooterZone]||state.shooterZone;selDisplay.textContent=`🎯 ${l} → ${zone} — Ausgang wählen`;return}
+    if(state.step>=3&&isShooter){resetToStep(1);state.shooterZone=zone;highlightShooter(zone);state.step=2;const l=SHOOTER_LABEL[zone]||zone;selDisplay.textContent=`📍 ${l} — Torzone tippen`}
+  });
+});
+function highlightShooter(zone){document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>{el.style.fill=el.dataset.zone===zone?'rgba(244,185,66,0.5)':'var(--q-empty)'})}
+function clearSelection(){document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>el.style.fill='');document.querySelectorAll('#screenInput .target-zone').forEach(el=>el.style.fill='')}
+function enableOutcome(en){btnSave.disabled=!en;btnGoal.disabled=!en}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+
+btnSave.addEventListener('click',()=>selectOutcome('saved'));
+btnGoal.addEventListener('click',()=>selectOutcome('goal'));
+function selectOutcome(val){
+  if(state.step<3)return;state.outcome=val;state.bodyPart=null;state.bodyDetail=null;
+  btnSave.classList.toggle('selected',val==='saved');btnGoal.classList.toggle('selected',val==='goal');
+  if(val==='saved'){bodypartRow.classList.add('visible');bodypartDetail.style.display='none';document.querySelectorAll('.bodypart-btn').forEach(b=>b.classList.remove('selected'));document.querySelectorAll('.bodypart-detail-btn').forEach(b=>b.classList.remove('selected'));btnSubmit.disabled=true;state.step=4;selDisplay.textContent='🧤 Gehalten — Körperteil?'}
+  else{bodypartRow.classList.remove('visible');btnSubmit.disabled=false;selDisplay.textContent='⚽ Tor — eintragen'}
 }
+document.querySelectorAll('.bodypart-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.bodypart-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');state.bodyPart=this.dataset.part;state.bodyDetail=null;
+    document.querySelectorAll('.bodypart-detail-btn').forEach(b=>b.classList.remove('selected'));
+    if(state.bodyPart==='hand'){bodypartDetail.style.display='flex';$('btnHandTief').style.display='';$('btnFussHoch').style.display='none';$('btnFussHalbhoch').style.display='none'}
+    else if(state.bodyPart==='fuss'){bodypartDetail.style.display='flex';$('btnHandTief').style.display='none';$('btnFussHoch').style.display='';$('btnFussHalbhoch').style.display=''}
+    else{bodypartDetail.style.display='none';btnSubmit.disabled=false;selDisplay.textContent='✅ Körper — eintragen'}
+    if(state.bodyPart!=='koerper')selDisplay.textContent='🤚 Detail wählen';if(state.bodyPart!=='koerper')btnSubmit.disabled=false;
+  });
+});
+document.querySelectorAll('.bodypart-detail-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.bodypart-detail-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');state.bodyDetail=this.dataset.detail;
+    const m={'tief':'Hand tief','hoch':'Fuß hoch','halbhoch':'Fuß halb hoch'};
+    selDisplay.textContent='✅ '+(m[state.bodyDetail]||state.bodyDetail)+' — eintragen';
+  });
+});
 
+btnSubmit.addEventListener('click',()=>{
+  if(!state.shooterZone||!state.targetZone||!state.outcome)return;
+  if(currentSession&&currentSession.closed){showToast('🔒 Spiel abgeschlossen','error');return}
+  const shot={id:Date.now()+'_'+Math.random().toString(36).slice(2,6),shooterZone:state.shooterZone,targetZone:state.targetZone,outcome:state.outcome,opponentGoal:false,is1v1:state.is1v1,bodyPart:state.bodyPart,bodyDetail:state.bodyDetail,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,timestamp:new Date().toISOString()};
+  state.shots.push(shot); updateStats(); updateScore();
+  showToast(shot.outcome==='saved'?'🧤 Gehalten! ('+Math.floor(gameClock.minute)+'min)':'⚽ Gegner Tor ('+Math.floor(gameClock.minute)+'min)','success');
+  saveCurrentSession();
+  fullReset();
+  if(!gameClock.running&&!gameClock.intervalId)startClock();
+});
+btnReset.addEventListener('click',()=>{fullReset()});
+
+function resetToStep(s){clearSelection();state.step=s;if(s<=1){state.shooterZone=null;state.targetZone=null}if(s<=2){state.outcome=null;enableOutcome(false)}if(s<=3){state.bodyPart=null;state.bodyDetail=null;bodypartRow.classList.remove('visible')}btnSubmit.disabled=true;selDisplay.textContent='👆 Wurfzone tippen'}
 function fullReset(){
   clearSelection();
-  state.shooterZone = null;
-  state.targetZone = null;
-  state.outcome = null;
-  state.bodyPart = null;
-  state.bodyDetail = null;
-  state.step = 1;
+  state.shooterZone=null; state.targetZone=null;
+  state.outcome=null; state.bodyPart=null; state.bodyDetail=null;
+  state.step=1; state.is1v1=false;
   enableOutcome(false);
-  btnSubmit.disabled = true;
+  btnSubmit.disabled=true;
   btnSave.classList.remove('selected');
   btnGoal.classList.remove('selected');
+  btn1v1.classList.remove('selected');
   bodypartRow.classList.remove('visible');
-  document.querySelectorAll('.bodypart-btn').forEach(b => b.classList.remove('selected'));
-  document.querySelectorAll('.bodypart-detail-btn').forEach(b => b.classList.remove('selected'));
-  updateSteps();
-  selDisplay.textContent = '👆 Wurfzone tippen';
+  document.querySelectorAll('.bodypart-btn').forEach(b=>b.classList.remove('selected'));
+  document.querySelectorAll('.bodypart-detail-btn').forEach(b=>b.classList.remove('selected'));
+  // Clear inline styles (let CSS handle default fills)
+  document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>el.style.fill='');
+  document.querySelectorAll('#screenInput .target-zone').forEach(el=>el.style.fill='');
+  selDisplay.textContent='👆 Wurfzone tippen'
 }
 
-function clearSelection(){
-  document.querySelectorAll('#screenInput .shooter-zone').forEach(el => el.style.fill = 'var(--q-empty)');
-  document.querySelectorAll('#screenInput .target-zone').forEach(el => el.style.fill = 'var(--q-empty)');
+// STATS
+function getDisplayShots(){
+  let shots=analysisMode?analysisShots:state.shots;
+  if(activeKeeperFilter!=='all')shots=shots.filter(s=>s.keeperId===activeKeeperFilter);
+  return shots;
 }
+function getDisplaySaves(shots){return shots.filter(s=>s.outcome==='saved'&&!s.opponentGoal).length}
+function getDisplayGoals(shots){return shots.filter(s=>s.outcome==='goal'&&!s.opponentGoal).length}
+function getDisplayOppGoals(shots){return shots.filter(s=>s.opponentGoal).length}
 
-// ---- Steps UI ----
-function updateSteps(){
-  [1,2,3,4].forEach(i => {
-    const el = $('step'+i);
-    if(!el) return;
-    el.classList.remove('active','done');
-    if(state.step === i) el.classList.add('active');
-    else if(state.step > i) el.classList.add('done');
-  });
-}
-
-// ---- Stats ----
 function updateStats(){
-  const total = state.shots.length;
-  const saves = state.shots.filter(s => s.outcome === 'saved').length;
-  const goals = state.shots.filter(s => s.outcome === 'goal').length;
-  const pct = total > 0 ? (saves / total * 100).toFixed(1) : '—';
-
-  shotCounter.textContent = total;
-  statSaves.textContent = saves;
-  statGoals.textContent = goals;
-  statPct.textContent = total > 0 ? pct + '%' : '—%';
-  updateSessionHeader();
-  saveCurrentSession();
-
-  updateEffBar(saves, total);
-  updateFieldHeatmap();
-  updateHistory();
-  updateChart();
+  const shots=getDisplayShots(), total=shots.length;
+  const saves=getDisplaySaves(shots), goals=getDisplayGoals(shots), oppGoalsStats=getDisplayOppGoals(shots);
+  const pct=total>0?(saves/total*100).toFixed(1):'—';
+  if($('statSaves2'))$('statSaves2').textContent=saves;
+  if($('statGoals2'))$('statGoals2').textContent=goals;
+  if($('statPct2'))$('statPct2').textContent=total>0?pct+'%':'—%';
+  const effShots=shots.filter(s=>!s.opponentGoal);
+  updateEffBar(saves,effShots.length); updateFieldHeatmap(shots); updateHistory(shots); updateChart(shots); updateSeasonAverage();
+  if(!analysisMode)saveCurrentSession();
+  updateScore();
 }
 
-function updateEffBar(saves, total){
-  const pct = total > 0 ? Math.round(saves/total*100) : null;
-  $('effPct').textContent = pct === null ? '—%' : pct + '%';
-  $('effFrac').textContent = `${saves}/${total}`;
+function updateEffBar(saves,total){
+  const pct=total>0?Math.round(saves/total*100):null,cls=pct!==null?classifySP(pct,total):{label:'—',color:'var(--text-dim)',bg:'var(--q-empty)'};
+  $('effPct').textContent=pct===null?'—%':pct+'%';$('effPct').style.color=cls.color;
+  $('effFrac').textContent=saves+'/'+total;
+  const ec=$('effClass');ec.textContent=cls.label;ec.style.background=cls.bg;ec.style.color=cls.color;
+  $('statsEffLabel').textContent=analysisMode?'📊 Kombiniert':(activeKeeperFilter!=='all'?'🧤 Gefiltert':'Effizienz Torwart');
 }
-
-// ---- Feld-Heatmap (Torzonen + Wurfzonen, im Stats-Screen) ----
-function updateFieldHeatmap(){
-  // Torzonen 1-9
-  for(let z=1; z<=9; z++){
-    const shots = state.shots.filter(s => s.targetZone === z);
-    const total = shots.length;
-    const saves = shots.filter(s => s.outcome === 'saved').length;
-    const cell = document.querySelector(`#statsTargetZones .stat-zone[data-zone="${z}"]`);
-    if(cell) cell.style.fill = qualityColor(saves, total);
-    const valEl = document.querySelector(`[data-zsave="${z}"]`);
-    const fracEl = document.querySelector(`[data-zfrac="${z}"]`);
-    if(valEl) valEl.textContent = total > 0 ? Math.round(saves/total*100) + '%' : '–';
-    if(fracEl) fracEl.textContent = total > 0 ? `${saves}/${total}` : '';
-  }
-  // Wurfzonen A-H + 7m
-  ['A','B','C','D','E','F','G','H','7m'].forEach(z => {
-    const shots = state.shots.filter(s => s.shooterZone === z);
-    const total = shots.length;
-    const saves = shots.filter(s => s.outcome === 'saved').length;
-    const cell = document.querySelector(`#statsShooterZones .stat-zone[data-zone="${z}"]`);
-    if(cell) cell.style.fill = qualityColor(saves, total);
-    const valEl = document.querySelector(`#statsShooterLabels [data-zsave="${z}"]`);
-    const fracEl = document.querySelector(`#statsShooterLabels [data-zfrac="${z}"]`);
-    if(valEl) valEl.textContent = total > 0 ? Math.round(saves/total*100) + '%' : '';
-    if(fracEl) fracEl.textContent = total > 0 ? `${saves}/${total}` : '';
-  });
-  // Grund-Füllung leerer Zonen im Eingabe-Screen bleibt unverändert (dezent, non-data)
+function updateFieldHeatmap(shots){
+  const s=shots||getDisplayShots();
+  for(let z=1;z<=9;z++){const sh=s.filter(x=>x.targetZone===z&&!x.opponentGoal);const t=sh.length,sv=sh.filter(x=>x.outcome==='saved').length;const c=document.querySelector(`#statsTargetZones .stat-zone[data-zone="${z}"]`);if(c)c.style.fill=qualityColor(sv,t);const v=document.querySelector(`[data-zsave="${z}"]`),f=document.querySelector(`[data-zfrac="${z}"]`);if(v)v.textContent=t>0?Math.round(sv/t*100)+'%':'–';if(f)f.textContent=t>0?sv+'/'+t:''}
+  ['A','B','C','D','E','F','G','H','7m'].forEach(z=>{const sh=s.filter(x=>x.shooterZone===z&&!x.opponentGoal);const t=sh.length,sv=sh.filter(x=>x.outcome==='saved').length;const c=document.querySelector(`#statsShooterZones .stat-zone[data-zone="${z}"]`);if(c)c.style.fill=qualityColor(sv,t);const v=document.querySelector(`#statsShooterLabels [data-zsave="${z}"]`),f=document.querySelector(`#statsShooterLabels [data-zfrac="${z}"]`);if(v)v.textContent=t>0?Math.round(sv/t*100)+'%':'';if(f)f.textContent=t>0?sv+'/'+t:''})
 }
-
-// ---- History ----
-function updateHistory(){
-  const list = $('historyList');
-  if(state.shots.length === 0){
-    list.innerHTML = '<div class="history-empty">Noch keine Shots erfasst</div>';
-    return;
-  }
-  const recent = [...state.shots].reverse().slice(0, 20);
-  list.innerHTML = recent.map(s => {
-    const cls = s.outcome === 'saved' ? 'saved' : 'goal';
-    const icon = s.outcome === 'saved' ? '🧤' : '⚽';
-    const partMap = {hand:'Hand',fuss:'Fuß',koerper:'Körper'};
-    const detailMap = {tief:' tief',hoch:' hoch'};
-    const bodyStr = s.bodyPart ? ` · ${partMap[s.bodyPart]||''}${s.bodyDetail?detailMap[s.bodyDetail]:''}` : '';
-    const v1Str = s.is1v1 ? ' ⚡1v1' : '';
-    const label = s.outcome === 'saved' ? 'Gehalten' : 'Tor';
-    const t = new Date(s.timestamp);
-    const time = t.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-    return `<div class="history-item ${cls}">
-      <span class="h-icon">${icon}</span>
-      <span class="h-info"><strong>${s.shooterZone}${v1Str}→${s.targetZone}</strong> ${label}${bodyStr}</span>
-      <span class="h-time">${time}</span>
-    </div>`;
+function updateHistory(shots){
+  const s=shots||getDisplayShots(), list=$('historyList');
+  if(s.length===0){list.innerHTML='<div class="history-empty">Noch keine Shots erfasst</div>';return}
+  list.innerHTML=[...s].reverse().slice(0,20).map(sh=>{
+    const cls=sh.outcome==='saved'?'saved':'goal',icon=sh.outcome==='saved'?'🧤':'⚽';
+    const pm={hand:'Hand',fuss:'Fuß',koerper:'Körper'},dm={tief:' tief',hoch:' hoch',halbhoch:' halb hoch'};
+    const body=sh.bodyPart?' · '+(pm[sh.bodyPart]||'')+(sh.bodyDetail?dm[sh.bodyDetail]:''):'';
+    const v1=sh.is1v1?' ⚡1v1':'';
+    let lbl=sh.outcome==='saved'?'Gehalten':'Tor';
+    if(sh.opponentGoal)lbl=(currentSession?currentSession.club:'')+' Tor';
+    const sl=SHOOTER_LABEL[sh.shooterZone]||sh.shooterZone,tl=ZONE_LABEL[sh.targetZone]||sh.targetZone;
+    const min=sh.gameMinute!==undefined?Math.floor(sh.gameMinute)+1+"'":'';
+    return `<div class="history-item ${cls}"><span class="h-icon">${icon}</span><span class="h-info"><strong>${sh.opponentGoal?'—':sl}${v1}${sh.opponentGoal?'':'→'+tl}</strong> ${lbl}${body}</span><span class="h-time">${min}</span></div>`;
   }).join('');
 }
-
-// ---- Chart ----
-let chartInstance = null;
-function updateChart(){
-  const ctx = $('chartZones').getContext('2d');
-  const labels = ['1','2','3','4','5','6','7','8','9'];
-  const saves = labels.map((_,i) => state.shots.filter(s => s.targetZone === i+1 && s.outcome === 'saved').length);
-  const goals = labels.map((_,i) => state.shots.filter(s => s.targetZone === i+1 && s.outcome === 'goal').length);
-
-  if(chartInstance) { chartInstance.destroy(); chartInstance = null; }
-
-  chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: '🧤 Gehalten', data: saves, backgroundColor: 'rgba(47,158,110,0.8)', borderRadius: 4 },
-        { label: '⚽ Tore', data: goals, backgroundColor: 'rgba(232,73,58,0.8)', borderRadius: 4 }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { labels: { color: '#8fa3c0', font: { size: 11 } } }
-      },
-      scales: {
-        x: { title: { display: true, text: 'Torzone', color: '#8fa3c0', font: { size: 10 } },
-             ticks: { color: '#8fa3c0' }, grid: { color: 'rgba(255,255,255,0.04)' } },
-        y: { beginAtZero: true, title: { display: true, text: 'Anzahl', color: '#8fa3c0', font: { size: 10 } },
-             ticks: { color: '#8fa3c0', stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.04)' } }
-      }
-    }
-  });
+let chartInstance=null;
+function updateChart(shots){
+  const s=shots||getDisplayShots(), ctx=$('chartZones').getContext('2d');
+  const labels=['OR','OM','OL','MR','MM','ML','UR','UM','UL'];
+  const saves=labels.map((_,i)=>s.filter(x=>x.targetZone===i+1&&x.outcome==='saved').length);
+  const goals=labels.map((_,i)=>s.filter(x=>x.targetZone===i+1&&x.outcome==='goal'&&!x.opponentGoal).length);
+  if(chartInstance){chartInstance.destroy();chartInstance=null}
+  chartInstance=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'🧤 Gehalten',data:saves,backgroundColor:'rgba(47,158,110,0.8)',borderRadius:4},{label:'⚽ Tore',data:goals,backgroundColor:'rgba(232,73,58,0.8)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa3c0',font:{size:11}}}},scales:{x:{title:{display:true,text:'Torzone',color:'#8fa3c0',font:{size:10}},ticks:{color:'#8fa3c0'},grid:{color:'rgba(255,255,255,0.04)'}},y:{beginAtZero:true,ticks:{color:'#8fa3c0',stepSize:1},grid:{color:'rgba(255,255,255,0.04)'}}}}});
 }
 
-// ---- Tab Switching ----
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', function(){
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+// KEEPER FILTER
+function renderKeeperFilter(){
+  const el=$('keeperFilter');
+  let html='<button class="keeper-filter-btn'+(activeKeeperFilter==='all'?' active':'')+'" onclick="setKeeperFilter(\'all\')">Alle</button>';
+  const keepers=currentSession&&currentSession.keepers?currentSession.keepers:[];
+  keepers.forEach(k=>{
+    html+='<button class="keeper-filter-btn'+(activeKeeperFilter===k.id?' active':'')+'" onclick="setKeeperFilter(\''+k.id+'\')">#'+k.number+' '+k.firstName+'</button>';
+  });
+  el.innerHTML=html;
+}
+function setKeeperFilter(id){activeKeeperFilter=id;renderKeeperFilter();updateStats()}
+// Fix for keeper filter buttons
+function updateKeeperFilterButtons(){} // handled inline
+
+// SEASON AVERAGE (per club)
+function updateSeasonAverage(){
+  const all=loadSessions().filter(s=>s.club===filterClub); let ts=0,tv=0;
+  all.forEach(s=>s.shots.forEach(sh=>{if(!sh.opponentGoal){ts++;if(sh.outcome==='saved')tv++}}));
+  const bar=$('seasonAvgBar');
+  if(ts<10){bar.style.display='none';return}
+  bar.style.display='';
+  const pct=Math.round(tv/ts*100), cls=classifySP(pct,ts);
+  $('seasonPct').textContent=pct+'%';$('seasonPct').style.color=cls.color;
+  $('seasonFrac').textContent=tv+'/'+ts;
+  const sc=$('seasonClass');sc.textContent=cls.label;sc.style.background=cls.bg;sc.style.color=cls.color;
+}
+
+// SESSION FILTER + LIST
+function getFilteredSessions(){
+  const all=loadSessions().reverse();
+  let f=all;
+  if(filterClub!=='all')f=f.filter(s=>s.club===filterClub);
+  if(filterType!=='all')f=f.filter(s=>s.type===filterType);
+  return f;
+}
+document.querySelectorAll('.s-filter-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    const col=this.dataset.filter;
+    // Group: club or type
+    document.querySelectorAll(`.s-filter-btn[data-filter="${col}"]`).forEach(b=>b.classList.remove('active'));
     this.classList.add('active');
-    const target = this.dataset.screen;
-    showScreen(target);
-    if(target === 'screenStats') updateStats();
-    if(target === 'screenHistory') renderSessionList();
+    if(col==='club')filterClub=this.dataset.val;
+    if(col==='type')filterType=this.dataset.val;
+    renderSessionList();
   });
 });
 
-// ---- Init ----
-document.querySelectorAll('#screenInput .target-zone').forEach(el => el.style.fill = 'var(--q-empty)');
-document.querySelectorAll('#screenInput .shooter-zone').forEach(el => el.style.fill = 'var(--q-empty)');
-
-// Setup: default date to today
-const todayStr = new Date().toISOString().slice(0,10);
-$('setupDate').value = todayStr;
-
-updateSteps();
-
-// Service Worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+function renderSessionList(){
+  const filtered=getFilteredSessions(), el=$('sessionList');
+  if(filtered.length===0){el.innerHTML='<div class="history-empty">Keine Spiele gefunden</div>';$('sessionActions').style.display='none';return}
+  $('sessionActions').style.display='flex';
+  el.innerHTML=filtered.map(s=>{
+    const saves=s.shots.filter(sh=>sh.outcome==='saved'&&!sh.opponentGoal).length, total=s.shots.filter(sh=>!sh.opponentGoal).length;
+    const pct=total>0?Math.round(saves/total*100)+'%':'—%';
+    const d=new Date(s.date+'T12:00:00'), dateStr=d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});
+    const opp=s.opponent?' vs. '+s.opponent:'', checked=selectedSessionIds.has(s.id)?'checked':'';
+    const clubLabel=s.club||'ESV', clubCls=s.club==='HGA'?'hga':'esv';
+    let keeperInfo='';
+    if(s.keepers&&s.keepers.length>0)keeperInfo=' · '+(s.keepers.length>1?'🧤'+s.keepers.length+' TW':'🧤 #'+s.keepers[0].number);
+    const cls=s.closed?'session-item '+s.type+' closed':'session-item '+s.type;
+    return `<div class="${cls}"><input type="checkbox" class="si-cb" ${checked} onchange="onSessionCheck('${s.id}',this.checked)"><span class="si-club ${clubCls}">${clubLabel}</span><span class="si-icon" onclick="viewSession('${s.id}')">${TYPE_EMOJI[s.type]}</span><span class="si-info" onclick="viewSession('${s.id}')"><div class="si-title">${TYPE_LABEL[s.type]}${opp}</div><div class="si-sub">${dateStr} · ${total} Shots${keeperInfo}</div></span><span class="si-stat" onclick="viewSession('${s.id}')">${pct}</span></div>`;
+  }).join('');
 }
+function onSessionCheck(id,checked){if(checked)selectedSessionIds.add(id);else selectedSessionIds.delete(id)}
+function viewSession(id){
+  const all=loadSessions(), session=all.find(s=>s.id===id);
+  if(!session)return;
+  state.shots=[...session.shots];
+  currentSession={...session}; state.activeKeeperId=session.keeperChanges&&session.keeperChanges.length>0?session.keeperChanges[0].keeperId:(session.keepers?session.keepers[0].id:'k1');
+  analysisMode=false; analysisShots=[]; activeKeeperFilter='all';
+  updateActiveKeeperDisplay(); updateStats(); updateScore(); renderKeeperFilter();
+  $('btnOppGoal').textContent='Tor '+(session.club||'ESV');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.tab-btn[data-screen="screenStats"]').classList.add('active');
+  showScreen('screenStats');
+  $('statusSession').textContent=`📋 ${session.club} ${TYPE_EMOJI[session.type]}${session.opponent?' · '+session.opponent:''}${session.closed?' 🔒':''}`;
+}
+$('btnCloseSessions').addEventListener('click',()=>{if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}let all=loadSessions();all=all.map(s=>{if(selectedSessionIds.has(s.id)){s.closed=true;s.shots=[...s.shots]}return s});saveSessions(all);selectedSessionIds.clear();renderSessionList();showToast('🔒 Abgeschlossen','success')});
+$('btnDeleteSessions').addEventListener('click',()=>{if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}let all=loadSessions();all=all.filter(s=>!selectedSessionIds.has(s.id)||(currentSession&&s.id===currentSession.id&&!s.closed&&state.shots.length>0));saveSessions(all);selectedSessionIds.clear();renderSessionList();showToast('🗑 Gelöscht','error')});
+$('btnCombineSessions').addEventListener('click',()=>{
+  if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}
+  const all=loadSessions(), selected=all.filter(s=>selectedSessionIds.has(s.id));
+  const combined=selected.flatMap(s=>s.shots); if(combined.length===0){showToast('Keine Shots','error');return}
+  analysisMode=true; analysisShots=combined; state.shots=combined;
+  updateStats(); showToast('📊 '+selected.length+' Spiele ('+combined.length+' Shots)','success');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.tab-btn[data-screen="screenStats"]').classList.add('active');
+  showScreen('screenStats'); $('statusSession').textContent='📊 Kombiniert: '+selected.length+' Spiele';
+});
 
-// Online/Offline status
+// TAB
+document.querySelectorAll('.tab-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');const t=this.dataset.screen;showScreen(t);if(t==='screenStats'){renderKeeperFilter();updateStats()}if(t==='screenHistory'){renderSessionList();$('headerNewGame').textContent=currentSession&&!currentSession.closed?'⚙️':'+ Neu'}})});
+function openLegend(){$('legendMask').classList.add('open')}
+function closeLegend(){$('legendMask').classList.remove('open')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('legendMask').classList.remove('open')});
+
+// INIT
+document.querySelectorAll('#screenInput .target-zone').forEach(el=>el.style.fill='var(--q-empty)');
+document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>el.style.fill='var(--q-empty)');
+renderSessionList(); updateSessionHeader();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 updateSyncStatus(navigator.onLine);
-window.addEventListener('online',  () => updateSyncStatus(true));
-window.addEventListener('offline', () => updateSyncStatus(false));
-</script>
-</body>
-</html>
+window.addEventListener('online',()=>updateSyncStatus(true));
+window.addEventListener('offline',()=>updateSyncStatus(false));
+</script></body></html>
