@@ -194,6 +194,9 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 .corr-table{border-collapse:collapse;font-size:12px;width:100%;min-width:200px}
 .corr-table th{font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;padding:5px 6px;border:1px solid var(--border);background:var(--card);text-align:center;white-space:nowrap}
 .corr-table td{padding:6px 8px;border:1px solid var(--border);text-align:center;font-size:13px;min-width:30px}
+/* Undo own goal */
+.btn-undo-own{background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-dim);font-size:15px;padding:5px 9px;cursor:pointer;line-height:1;touch-action:manipulation}
+.btn-undo-own:active{color:var(--text);border-color:var(--text)}
 /* Roster */
 .roster-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)}
 .roster-row:last-child{border-bottom:none}
@@ -230,6 +233,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
   <span class="clock" id="gameClock" onclick="editClock()" style="cursor:pointer">00:00</span>
   <button class="btn-clock" id="btnClock">⏸️</button>
   <button class="btn-oppgoal" id="btnOppGoal">Tor ESV</button>
+  <button class="btn-undo-own" id="btnUndoOwnGoal" onclick="undoLastOwnGoal()" title="Letztes eigenes Tor zurücknehmen">↩</button>
 </div>
 <div class="onevone-row" style="justify-content:space-between;padding:2px 8px"><button class="btn-1v1" id="btn1v1">⚡ 1 gegen 1</button><button class="btn-hz" onclick="openHZModal()">📊 HZ</button></div>
 <div class="field-container" id="fieldContainer">
@@ -729,6 +733,13 @@ $('btnUndo').addEventListener('click',()=>{
 });
 
 function resetToStep(s){clearSelection();state.step=s;if(s<=1){state.shooterZone=null;state.targetZone=null}if(s<=2){state.outcome=null;enableOutcome(false);btnSave.classList.remove('selected');btnGoal.classList.remove('selected')}if(s<=3){state.bodyPart=null;state.bodyDetail=null;bodypartRow.classList.remove('visible')}btnSubmit.disabled=true;selDisplay.textContent='👆 Wurfzone tippen'}
+function undoLastOwnGoal(){
+  const idx=[...state.shots.keys()].reverse().find(i=>state.shots[i].opponentGoal);
+  if(idx===undefined){showToast('Kein eigenes Tor vorhanden','error');return}
+  state.shots.splice(idx,1);
+  updateStats();updateScore();saveCurrentSession();
+  showToast('Eigentor zurückgenommen','success');
+}
 function fullReset(){
   clearSelection();
   state.shooterZone=null; state.targetZone=null;
@@ -942,8 +953,10 @@ function renderSessionList(){
     const clubLabel=s.club||'ESV', clubCls=s.club==='HGA'?'hga':'esv';
     let keeperInfo='';
     if(s.keepers&&s.keepers.length>0)keeperInfo=' · '+(s.keepers.length>1?'🧤'+s.keepers.length+' TW':'🧤 #'+s.keepers[0].number);
+    const fOwn=s.shots.filter(sh=>sh.opponentGoal).length,fOpp=s.shots.filter(sh=>!sh.opponentGoal&&sh.outcome==='goal').length;
+    const scoreDisp=(fOwn+fOpp>0&&s.closed)?' · '+fOwn+':'+fOpp:'';
     const cls=s.closed?'session-item '+s.type+' closed':'session-item '+s.type;
-    return `<div class="${cls}"><input type="checkbox" class="si-cb" ${checked} onchange="onSessionCheck('${s.id}',this.checked)"><span class="si-club ${clubCls}">${clubLabel}</span><span class="si-icon" onclick="viewSession('${s.id}')">${TYPE_EMOJI[s.type]}</span><span class="si-info" onclick="viewSession('${s.id}')"><div class="si-title">${TYPE_LABEL[s.type]}${opp}</div><div class="si-sub">${dateStr} · ${total} Shots${keeperInfo}</div></span><span class="si-stat" onclick="viewSession('${s.id}')">${pct}</span></div>`;
+    return `<div class="${cls}"><input type="checkbox" class="si-cb" ${checked} onchange="onSessionCheck('${s.id}',this.checked)"><span class="si-club ${clubCls}">${clubLabel}</span><span class="si-icon" onclick="viewSession('${s.id}')">${TYPE_EMOJI[s.type]}</span><span class="si-info" onclick="viewSession('${s.id}')"><div class="si-title">${TYPE_LABEL[s.type]}${opp}</div><div class="si-sub">${dateStr}${scoreDisp} · ${total} Shots${keeperInfo}</div></span><span class="si-stat" onclick="viewSession('${s.id}')">${pct}</span></div>`;
   }).join('');
 }
 function onSessionCheck(id,checked){if(checked)selectedSessionIds.add(id);else selectedSessionIds.delete(id)}
@@ -1075,9 +1088,9 @@ function renderTimeBlockChart(shots){
 function renderCorrMatrix(shots){
   const el=$('corrMatrix');if(!el)return;
   const goals=shots.filter(s=>!s.opponentGoal&&s.outcome==='goal'&&s.shooterZone!=='-'&&s.targetZone);
-  if(goals.length<5){el.style.display='none';return}
-  const szUsed=[...new Set(goals.map(g=>g.shooterZone))].sort((a,b)=>{const order=['A','B','C','D','E','F','G','H','7m'];return order.indexOf(a)-order.indexOf(b)});
-  const tzUsed=[...new Set(goals.map(g=>g.targetZone))].sort((a,b)=>a-b);
+  if(goals.length<1){el.style.display='none';return}
+  const szUsed=['A','B','C','D','E','F','G','H','7m'];
+  const tzUsed=[1,2,3,4,5,6,7,8,9];
   const mx={};goals.forEach(g=>{const k=g.shooterZone+'_'+g.targetZone;mx[k]=(mx[k]||0)+1});
   const maxV=Math.max(...Object.values(mx));
   let html='<div class="chart-header" style="margin-top:10px">Wurfzone → Torzone (Tore)</div><div style="overflow-x:auto"><table class="corr-table">';
@@ -1140,17 +1153,38 @@ function checkZoneAlert(){
 function openHZModal(){
   const shots=(analysisMode?analysisShots:state.shots).filter(s=>!s.opponentGoal&&s.shooterZone!=='-');
   const half=currentSession?(currentSession.halfLength||30):30;
+  const now=gameClock?gameClock.minute:half;
+  const inHz2=now>half;
   const hz1=shots.filter(s=>(s.gameMinute||0)<=half), hz2=shots.filter(s=>(s.gameMinute||0)>half);
-  const st=arr=>{const sv=arr.filter(s=>s.outcome==='saved').length,gl=arr.filter(s=>s.outcome==='goal').length,t=arr.length,p=t>0?Math.round(sv/t*100):null;return{sv,gl,t,p}};
+  const st=arr=>{const sv=arr.filter(s=>s.outcome==='saved').length,t=arr.length,p=t>0?Math.round(sv/t*100):null;return{sv,t,p}};
   const s1=st(hz1),s2=st(hz2);
-  const fmt=s=>s.p!==null?s.p+'% ('+s.sv+'/'+s.t+')':(s.t===0?'—':''+s.sv+'/'+s.t);
-  const goalsByZone={};shots.filter(s=>s.outcome==='goal').forEach(s=>{goalsByZone[s.shooterZone]=(goalsByZone[s.shooterZone]||0)+1});
-  const topZ=Object.entries(goalsByZone).sort((a,b)=>b[1]-a[1])[0];
-  const lastGoals=[...shots].filter(s=>s.outcome==='goal').sort((a,b)=>(b.gameMinute||0)-(a.gameMinute||0)).slice(0,3);
-  let html='<h3>📊 Halbzeit-Analyse</h3>';
-  html+='<div class="hz-row"><div class="hz-col"><div class="hz-label">1. Halbzeit</div><div class="hz-val'+(s1.t===0?' dim':'')+'">'+fmt(s1)+'</div></div><div class="hz-col"><div class="hz-label">2. Halbzeit</div><div class="hz-val'+(s2.t===0?' dim':'')+'">'+fmt(s2)+'</div></div></div>';
-  if(topZ)html+='<div class="hz-weakness">⚠️ Schwachzone: <strong>'+(SHOOTER_LABEL[topZ[0]]||topZ[0])+'</strong> ('+topZ[1]+' Tor'+(topZ[1]>1?'e':'')+')</div>';
-  if(lastGoals.length>0){html+='<div class="hz-goals-title">Letzte Tore</div>';lastGoals.forEach(g=>{const mn=Math.floor(g.gameMinute||0)+1;html+='<div class="hz-goal-item">⚽ '+mn+"' · "+(SHOOTER_LABEL[g.shooterZone]||g.shooterZone)+' → '+(ZONE_LABEL[g.targetZone]||g.targetZone)+'</div>'})}
+  const fmt=s=>s.p!==null?s.p+'%<span class="hz-sub"> ('+s.sv+'/'+s.t+')</span>':(s.t===0?'—':''+s.sv+'/'+s.t);
+  // Schwachzone: wurfzone mit meisten Toren + wohin gehen die Tore (torzone)
+  const allGoals=shots.filter(s=>s.outcome==='goal');
+  const goalsByZone={};allGoals.forEach(s=>{goalsByZone[s.shooterZone]=(goalsByZone[s.shooterZone]||0)+1});
+  const topSZ=Object.entries(goalsByZone).sort((a,b)=>b[1]-a[1])[0];
+  const goalsByTZ={};allGoals.forEach(s=>{goalsByTZ[s.targetZone]=(goalsByTZ[s.targetZone]||0)+1});
+  const topTZ=Object.entries(goalsByTZ).sort((a,b)=>b[1]-a[1])[0];
+  // 7m + 1v1
+  const s7m=shots.filter(s=>s.shooterZone==='7m'),sv7m=s7m.filter(s=>s.outcome==='saved').length;
+  const s1v1=shots.filter(s=>s.is1v1),sv1v1=s1v1.filter(s=>s.outcome==='saved').length;
+  // Tendenz: letzte 8 Schüsse
+  const last8=shots.slice(-8);
+  const tendenz=Array.from({length:8},(_,i)=>last8[i]?`<span style="color:${last8[i].outcome==='saved'?'#4caf50':'#e8493a'};font-size:16px">●</span>`:'<span style="color:var(--border)">○</span>').join(' ');
+  let html='<h3 style="margin:0 0 12px">📊 Halbzeit</h3>';
+  // HZ Vergleich
+  html+='<div class="hz-row" style="margin-bottom:10px"><div class="hz-col"><div class="hz-label">1. Halbzeit</div><div class="hz-val'+(s1.t===0?' dim':'')+'">'+fmt(s1)+'</div></div><div class="hz-col"><div class="hz-label">'+(inHz2?'2. Halbzeit':'Bisher')+'</div><div class="hz-val'+(s2.t===0?' dim':'')+'">'+fmt(s2)+'</div></div></div>';
+  // Schwachstellen
+  if(topSZ)html+='<div class="hz-weakness" style="margin-bottom:6px">⚠️ Wurfzone: <strong>'+(SHOOTER_LABEL[topSZ[0]]||topSZ[0])+'</strong> ('+topSZ[1]+' T'+(topSZ[1]>1?'ore':'or')+')'+( topTZ?' · Torzone: <strong>'+(ZONE_LABEL[topTZ[0]]||topTZ[0])+'</strong>':'')+'</div>';
+  // Situationen
+  if(s7m.length>=1||s1v1.length>=1){
+    html+='<div style="display:flex;gap:8px;margin-bottom:10px">';
+    if(s7m.length>=1)html+='<div style="flex:1;background:var(--card);border-radius:8px;padding:8px 10px;border:1px solid var(--border)"><div class="hz-label">7-Meter</div><div style="font-size:16px;font-weight:800;color:'+(sv7m/s7m.length>=0.5?'#4caf50':'#e8493a')+'">'+sv7m+'/'+s7m.length+'</div></div>';
+    if(s1v1.length>=1)html+='<div style="flex:1;background:var(--card);border-radius:8px;padding:8px 10px;border:1px solid var(--border)"><div class="hz-label">1 gegen 1</div><div style="font-size:16px;font-weight:800;color:'+(sv1v1/s1v1.length>=0.5?'#4caf50':'#e8493a')+'">'+sv1v1+'/'+s1v1.length+'</div></div>';
+    html+='</div>';
+  }
+  // Tendenz
+  html+='<div style="background:var(--card);border-radius:8px;padding:8px 12px;border:1px solid var(--border);margin-bottom:12px"><div class="hz-label" style="margin-bottom:6px">Tendenz (letzte 8 Schüsse)</div><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">'+tendenz+'</div></div>';
   html+='<button class="mclose" onclick="closeHZModal()">Schließen</button>';
   $('hzModalBox').innerHTML=html;$('hzMask').classList.add('open');
 }
@@ -1241,42 +1275,43 @@ function loadDemoData(){
   function push1(n,zone,tz,res,v1,bp,bd,min,kid){if(res==='goal')g1++;g1shots.push({id:'d1_'+n,shooterZone:zone,targetZone:tz,outcome:res,opponentGoal:false,is1v1:v1||false,bodyPart:bp||null,bodyDetail:bd||null,gameMinute:min,keeperId:kid,scoreOwn:o1,scoreOpp:g1,timestamp:'2026-06-28T10:00:00.000Z'})}
   function own1(n,min,kid){o1++;g1shots.push({id:'d1_og'+n,shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:min,keeperId:kid,scoreOwn:o1,scoreOpp:g1,timestamp:'2026-06-28T10:00:00.000Z'})}
   // HZ1 — Dominik Müller (k1)
-  push1(1,'LM',7,'saved',false,'fuss','tief',3,'k1');own1(1,4,'k1');
-  push1(2,'MI',5,'goal',false,null,null,6,'k1');own1(2,8,'k1');
-  push1(3,'RA',3,'saved',false,'hand','hoch',10,'k1');
+  // HZ1 — Dominik Müller (k1) — Zonen: A=LA B=KL C=KM D=KR E=RA F=HL G=HM H=HR
+  push1(1,'F',7,'saved',false,'fuss','tief',3,'k1');own1(1,4,'k1');
+  push1(2,'C',5,'goal',false,null,null,6,'k1');own1(2,8,'k1');
+  push1(3,'E',3,'saved',false,'hand','hoch',10,'k1');
   push1(4,'7m',5,'saved',false,'hand','halbhoch',12,'k1');
-  push1(5,'LI',8,'goal',false,null,null,15,'k1');own1(3,16,'k1');
-  push1(6,'MA',2,'saved',false,'koerper',null,18,'k1');
-  push1(7,'RI',6,'goal',true,null,null,20,'k1');own1(4,22,'k1');
-  push1(8,'LA',7,'saved',false,'fuss','tief',24,'k1');own1(5,25,'k1');
-  push1(9,'MI',5,'saved',false,'koerper',null,27,'k1');
+  push1(5,'B',8,'goal',false,null,null,15,'k1');own1(3,16,'k1');
+  push1(6,'G',2,'saved',false,'koerper',null,18,'k1');
+  push1(7,'D',6,'goal',true,null,null,20,'k1');own1(4,22,'k1');
+  push1(8,'A',7,'saved',false,'fuss','tief',24,'k1');own1(5,25,'k1');
+  push1(9,'C',5,'saved',false,'koerper',null,27,'k1');
   push1(10,'7m',8,'goal',false,null,null,29,'k1');own1(6,30,'k1');
   // HZ2 — Jonas Berger (k2)
-  push1(11,'LM',4,'saved',false,'hand','halbhoch',32,'k2');
-  push1(12,'RM',3,'saved',false,'hand','hoch',34,'k2');own1(7,35,'k2');
-  push1(13,'MI',5,'goal',false,null,null,37,'k2');own1(8,39,'k2');
-  push1(14,'LI',8,'goal',true,null,null,41,'k2');
+  push1(11,'F',4,'saved',false,'hand','halbhoch',32,'k2');
+  push1(12,'H',3,'saved',false,'hand','hoch',34,'k2');own1(7,35,'k2');
+  push1(13,'C',5,'goal',false,null,null,37,'k2');own1(8,39,'k2');
+  push1(14,'B',8,'goal',true,null,null,41,'k2');
   push1(15,'7m',5,'saved',false,'hand','halbhoch',43,'k2');own1(9,45,'k2');
-  push1(16,'RA',3,'saved',false,'koerper',null,47,'k2');
-  push1(17,'MI',6,'goal',false,null,null,50,'k2');own1(10,51,'k2');
-  push1(18,'MA',2,'saved',false,'hand','hoch',53,'k2');
-  push1(19,'LM',7,'saved',false,'fuss','tief',56,'k2');own1(11,58,'k2');
+  push1(16,'E',3,'saved',false,'koerper',null,47,'k2');
+  push1(17,'C',6,'goal',false,null,null,50,'k2');own1(10,51,'k2');
+  push1(18,'G',2,'saved',false,'hand','hoch',53,'k2');
+  push1(19,'F',7,'saved',false,'fuss','tief',56,'k2');own1(11,58,'k2');
   const session1={id:'demo_game_1',date:'2026-06-28',club:'ESV',type:'heim',opponent:'TSV Weiden',halfLength:30,keepers:[{id:'k1',number:12,firstName:'Dominik',lastName:'Müller'},{id:'k2',number:1,firstName:'Jonas',lastName:'Berger'}],keeperChanges:[{keeperId:'k2',minute:30}],shots:g1shots,clockMinute:60,clockRunning:false,closed:true};
   // Game 2: ESV Auswärts bei SG Regensburg, 05.07.2026, nur Dominik Müller
   const g2shots=[];
   let o2=0,g2=0;
   function push2(n,zone,tz,res,v1,bp,bd,min){if(res==='goal')g2++;g2shots.push({id:'d2_'+n,shooterZone:zone,targetZone:tz,outcome:res,opponentGoal:false,is1v1:v1||false,bodyPart:bp||null,bodyDetail:bd||null,gameMinute:min,keeperId:'k1',scoreOwn:o2,scoreOpp:g2,timestamp:'2026-07-05T14:00:00.000Z'})}
   function own2(n,min){o2++;g2shots.push({id:'d2_og'+n,shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:min,keeperId:'k1',scoreOwn:o2,scoreOpp:g2,timestamp:'2026-07-05T14:00:00.000Z'})}
-  push2(1,'MI',5,'goal',false,null,null,2);own2(1,4);
-  push2(2,'LM',7,'saved',false,'fuss','tief',6);push2(3,'RA',3,'saved',false,'hand','hoch',9);own2(2,10);
-  push2(4,'7m',5,'goal',false,null,null,12);push2(5,'LI',8,'saved',false,'koerper',null,15);own2(3,16);
-  push2(6,'MI',5,'saved',false,'hand','halbhoch',18);push2(7,'MA',2,'goal',true,null,null,21);own2(4,23);
-  push2(8,'LA',7,'saved',false,'fuss','tief',25);push2(9,'LM',4,'goal',false,null,null,27);
+  push2(1,'C',5,'goal',false,null,null,2);own2(1,4);
+  push2(2,'F',7,'saved',false,'fuss','tief',6);push2(3,'E',3,'saved',false,'hand','hoch',9);own2(2,10);
+  push2(4,'7m',5,'goal',false,null,null,12);push2(5,'B',8,'saved',false,'koerper',null,15);own2(3,16);
+  push2(6,'C',5,'saved',false,'hand','halbhoch',18);push2(7,'G',2,'goal',true,null,null,21);own2(4,23);
+  push2(8,'A',7,'saved',false,'fuss','tief',25);push2(9,'F',4,'goal',false,null,null,27);
   push2(10,'7m',8,'saved',false,'hand','halbhoch',29);
-  own2(5,32);push2(11,'RI',6,'goal',false,null,null,34);push2(12,'MI',5,'saved',false,'koerper',null,37);own2(6,39);
-  push2(13,'LM',7,'saved',false,'fuss','tief',41);push2(14,'LM',8,'goal',false,null,null,43);own2(7,44);
-  push2(15,'7m',5,'saved',false,'hand','halbhoch',46);push2(16,'RA',3,'goal',true,null,null,49);own2(8,51);
-  push2(17,'MA',2,'saved',false,'hand','hoch',53);push2(18,'MI',5,'saved',false,'koerper',null,56);own2(9,58);
+  own2(5,32);push2(11,'D',6,'goal',false,null,null,34);push2(12,'C',5,'saved',false,'koerper',null,37);own2(6,39);
+  push2(13,'F',7,'saved',false,'fuss','tief',41);push2(14,'F',8,'goal',false,null,null,43);own2(7,44);
+  push2(15,'7m',5,'saved',false,'hand','halbhoch',46);push2(16,'E',3,'goal',true,null,null,49);own2(8,51);
+  push2(17,'G',2,'saved',false,'hand','hoch',53);push2(18,'C',5,'saved',false,'koerper',null,56);own2(9,58);
   const session2={id:'demo_game_2',date:'2026-07-05',club:'ESV',type:'auswaerts',opponent:'SG Regensburg',halfLength:30,keepers:[{id:'k1',number:12,firstName:'Dominik',lastName:'Müller'}],keeperChanges:[],shots:g2shots,clockMinute:60,clockRunning:false,closed:true};
   const updated=existing.filter(s=>!DEMO_IDS.includes(s.id));
   updated.unshift(session2);updated.unshift(session1);
