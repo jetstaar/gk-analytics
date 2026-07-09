@@ -190,6 +190,10 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 .special-stat-row .ss-pct{font-weight:800;min-width:38px;text-align:right}
 /* s-actions 4th button */
 .btn-export-csv{flex:1;padding:8px;border-radius:10px;border:2px solid #7a8fa8;color:#7a8fa8;background:transparent;font-size:12px;font-weight:700;cursor:pointer}
+/* Correlation matrix */
+.corr-table{border-collapse:collapse;font-size:12px;width:100%;min-width:200px}
+.corr-table th{font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;padding:5px 6px;border:1px solid var(--border);background:var(--card);text-align:center;white-space:nowrap}
+.corr-table td{padding:6px 8px;border:1px solid var(--border);text-align:center;font-size:13px;min-width:30px}
 /* Roster */
 .roster-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)}
 .roster-row:last-child{border-bottom:none}
@@ -354,6 +358,10 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div class="chart-wrapper"><canvas id="chartZones"></canvas></div>
 <div id="specialStats" style="width:100%;display:none"></div>
 <div id="bodypartStats" style="width:100%;display:none"></div>
+<div id="hzCompareStats" style="width:100%;display:none"></div>
+<div id="timeBlockChart" style="width:100%;display:none"></div>
+<div id="corrMatrix" style="width:100%;display:none"></div>
+<div id="trendChart" style="width:100%;display:none"></div>
 <div class="chart-header" style="margin-top:12px">Letzte Shots</div>
 <div class="history-list" id="historyList"><div class="history-empty">Noch keine Shots erfasst</div></div>
 </div></div>
@@ -770,7 +778,7 @@ function updateStats(){
   if($('statPct2'))$('statPct2').textContent=ak.pct!==null?ak.pct+'%':'—%';
   const effShots=shots.filter(s=>!s.opponentGoal);
   updateEffBar(saves,effShots.length); updateFieldHeatmap(shots); updateHistory(shots); updateChart(shots); updateSeasonAverage();
-  renderSpecialStats(shots); renderBodypartStats(shots); updateMomentumStrip();
+  renderSpecialStats(shots); renderBodypartStats(shots); renderHZCompare(shots); renderTimeBlockChart(shots); renderCorrMatrix(shots); renderTrendChart(); updateMomentumStrip();
   if(!analysisMode)saveCurrentSession();
   updateScore();
 }
@@ -838,7 +846,7 @@ function updateHistory(shots){
     return `<div class="history-item ${cls}"><span class="h-icon">${icon}</span><span class="h-info"><strong>${sh.opponentGoal?'—':sl}${v1}${sh.opponentGoal?'':'→'+tl}</strong> ${lbl}${body}</span><span class="h-time">${mn}${scoreStr}</span></div>`;
   }).join('');
 }
-let chartInstance=null;
+let chartInstance=null, chartTimeBlockInstance=null, chartTrendInstance=null;
 function updateChart(shots){
   const s=shots||getDisplayShots(), ctx=$('chartZones').getContext('2d');
   const labels=['OR','OM','OL','MR','MM','ML','UR','UM','UL'];
@@ -1022,6 +1030,89 @@ renderSessionList();
 // Sicherheitsnetz: Speicherstand vor Hintergrund/Tab-Wechsel/Reload sichern
 window.addEventListener('pagehide',()=>{if(currentSession&&!currentSession.closed)saveCurrentSession()});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&currentSession&&!currentSession.closed)saveCurrentSession()});
+
+// HZ1 vs HZ2 COMPARE
+function renderHZCompare(shots){
+  const el=$('hzCompareStats');if(!el)return;
+  const hl=(!analysisMode&&currentSession)?(currentSession.halfLength||30):30;
+  const gs=shots.filter(s=>!s.opponentGoal&&s.shooterZone!=='-');
+  const hz1=gs.filter(s=>(s.gameMinute||0)<=hl), hz2=gs.filter(s=>(s.gameMinute||0)>hl);
+  if(hz1.length<3&&hz2.length===0){el.style.display='none';return}
+  const st=arr=>{const sv=arr.filter(s=>s.outcome==='saved').length,gl=arr.filter(s=>s.outcome==='goal').length,t=arr.length,p=t>0?Math.round(sv/t*100):null;return{sv,gl,t,p}};
+  const s1=st(hz1),s2=st(hz2);
+  const fmtPct=(s)=>{if(s.p===null)return'<span style="color:var(--text-dim)">—</span>';const c=classifySP(s.p,s.t);return`<span style="color:${c.color};font-weight:800">${s.p}%</span>`};
+  let html='<div class="chart-header" style="margin-top:10px">1. vs 2. Halbzeit</div>';
+  html+='<table class="bp-table"><tr><th style="text-align:left"></th><th>1. HZ</th><th>2. HZ</th></tr>';
+  html+=`<tr><td>Schüsse</td><td>${s1.t}</td><td>${s2.t||'—'}</td></tr>`;
+  html+=`<tr><td>Gehalten</td><td style="color:var(--q-good);font-weight:700">${s1.sv}</td><td style="color:var(--q-good);font-weight:700">${s2.sv||'—'}</td></tr>`;
+  html+=`<tr><td>Tore</td><td style="color:var(--accent);font-weight:700">${s1.gl}</td><td style="color:var(--accent);font-weight:700">${s2.gl||'—'}</td></tr>`;
+  html+=`<tr><td>Quote</td><td>${fmtPct(s1)}</td><td>${s2.t>0?fmtPct(s2):'<span style="color:var(--text-dim)">—</span>'}</td></tr>`;
+  html+='</table>';
+  el.innerHTML=html;el.style.display='';
+}
+
+// TIME BLOCK CHART (10-min blocks)
+function renderTimeBlockChart(shots){
+  const el=$('timeBlockChart');if(!el)return;
+  const gs=shots.filter(s=>!s.opponentGoal&&s.shooterZone!=='-');
+  const maxMin=Math.max(...gs.map(s=>s.gameMinute||0),19);
+  const blocks=[];
+  for(let start=0;start<=maxMin;start+=10){
+    const end=start+10;
+    const bs=gs.filter(s=>(s.gameMinute||0)>=start&&(s.gameMinute||0)<end);
+    if(bs.length>0){const sv=bs.filter(s=>s.outcome==='saved').length;blocks.push({label:`${start+1}-${end}'`,pct:Math.round(sv/bs.length*100),t:bs.length})}
+  }
+  if(blocks.length<2){el.style.display='none';if(chartTimeBlockInstance){chartTimeBlockInstance.destroy();chartTimeBlockInstance=null}return}
+  el.innerHTML='<div class="chart-header" style="margin-top:10px">Effizienz im Spielverlauf</div><div class="chart-wrapper" style="max-height:170px"><canvas id="chartTimeBlock"></canvas></div>';
+  el.style.display='';
+  const ctx=$('chartTimeBlock').getContext('2d');
+  if(chartTimeBlockInstance){chartTimeBlockInstance.destroy();chartTimeBlockInstance=null}
+  chartTimeBlockInstance=new Chart(ctx,{type:'bar',data:{labels:blocks.map(b=>b.label),datasets:[{data:blocks.map(b=>b.pct),backgroundColor:blocks.map(b=>b.pct>=30?'rgba(47,158,110,0.85)':b.pct>=25?'rgba(244,185,66,0.85)':'rgba(232,73,58,0.85)'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw}% (${blocks[ctx.dataIndex].t} Schüsse)`}}},scales:{x:{ticks:{color:'#8fa3c0',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},y:{min:0,max:100,ticks:{color:'#8fa3c0',callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}}}}});
+}
+
+// CORRELATION MATRIX (Shooter Zone → Target Zone, only goals)
+function renderCorrMatrix(shots){
+  const el=$('corrMatrix');if(!el)return;
+  const goals=shots.filter(s=>!s.opponentGoal&&s.outcome==='goal'&&s.shooterZone!=='-'&&s.targetZone);
+  if(goals.length<5){el.style.display='none';return}
+  const szUsed=[...new Set(goals.map(g=>g.shooterZone))].sort((a,b)=>{const order=['A','B','C','D','E','F','G','H','7m'];return order.indexOf(a)-order.indexOf(b)});
+  const tzUsed=[...new Set(goals.map(g=>g.targetZone))].sort((a,b)=>a-b);
+  const mx={};goals.forEach(g=>{const k=g.shooterZone+'_'+g.targetZone;mx[k]=(mx[k]||0)+1});
+  const maxV=Math.max(...Object.values(mx));
+  let html='<div class="chart-header" style="margin-top:10px">Wurfzone → Torzone (Tore)</div><div style="overflow-x:auto"><table class="corr-table">';
+  html+='<tr><th></th>'+tzUsed.map(t=>`<th>${ZONE_LABEL[t]||t}</th>`).join('')+'</tr>';
+  szUsed.forEach(sz=>{
+    html+=`<tr><th>${SHOOTER_LABEL[sz]||sz}</th>`;
+    tzUsed.forEach(tz=>{
+      const v=mx[sz+'_'+tz]||0;
+      const bg=v>=2?`rgba(232,73,58,${(0.25+v/maxV*0.65).toFixed(2)})`:v===1?'rgba(232,73,58,0.15)':'transparent';
+      const fw=v>=2?'800':'400';const fc=v>=2?'#fff':v===1?'var(--text-dim)':'var(--border)';
+      html+=`<td style="background:${bg};color:${fc};font-weight:${fw}">${v>0?v:'·'}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</table></div>';
+  el.innerHTML=html;el.style.display='';
+}
+
+// TREND CHART (only in combined view)
+function renderTrendChart(){
+  const el=$('trendChart');if(!el)return;
+  if(!analysisMode||analysisSessions.length<2){el.style.display='none';if(chartTrendInstance){chartTrendInstance.destroy();chartTrendInstance=null}return}
+  const nm=activeKeeperFilter.startsWith('name:')?activeKeeperFilter.slice(5).toLowerCase():null;
+  const pts=analysisSessions.map(s=>{
+    const sh=nm?s.shots.filter(x=>!x.opponentGoal&&keeperName((s.keepers||[]).find(k=>k.id===x.keeperId)||{}).toLowerCase()===nm):s.shots.filter(x=>!x.opponentGoal);
+    const sv=sh.filter(x=>x.outcome==='saved').length,t=sh.length;
+    const d=new Date(s.date+'T12:00:00');
+    return{label:d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}),pct:t>=5?Math.round(sv/t*100):null,t};
+  }).filter(p=>p.pct!==null);
+  if(pts.length<2){el.style.display='none';return}
+  el.innerHTML='<div class="chart-header" style="margin-top:10px">Saisonverlauf Save%</div><div class="chart-wrapper" style="max-height:170px"><canvas id="chartTrend"></canvas></div>';
+  el.style.display='';
+  const ctx=$('chartTrend').getContext('2d');
+  if(chartTrendInstance){chartTrendInstance.destroy();chartTrendInstance=null}
+  chartTrendInstance=new Chart(ctx,{type:'line',data:{labels:pts.map(p=>p.label),datasets:[{data:pts.map(p=>p.pct),borderColor:'#f4b942',backgroundColor:'rgba(244,185,66,0.12)',borderWidth:2.5,tension:0.3,pointRadius:5,pointBackgroundColor:'#f4b942',fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw}% (${pts[ctx.dataIndex].t} Schüsse)`}}},scales:{x:{ticks:{color:'#8fa3c0',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},y:{min:0,max:100,ticks:{color:'#8fa3c0',callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}}}}});
+}
 
 // MOMENTUM STRIP
 function updateMomentumStrip(){
