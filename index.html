@@ -255,7 +255,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div class="title-row"><span class="title-main">Statistiken</span></div>
 <div id="combinedInfo" style="display:none;width:100%;font-size:11px;color:var(--text-dim);background:var(--card);border-radius:8px;padding:6px 10px;margin:2px 0"></div>
 <div class="keeper-filter" id="keeperFilter"></div>
-<div class="eff-bar" onclick="openLegend()"><span class="eff-label" id="statsEffLabel">Effizienz Torwart</span><span class="eff-value"><span class="eff-pct" id="effPct">—%</span><span class="eff-frac" id="effFrac">0/0</span><span class="eff-class" id="effClass">—</span></span></div>
+<div class="eff-bar" onclick="openLegend()"><span class="eff-label" id="statsEffLabel">Effizienz Torwart</span><span class="eff-value"><span class="eff-pct" id="effPct">—%</span><span class="eff-frac" id="effFrac">0/0</span><span class="eff-frac" id="effPlaytime" style="display:none"></span><span class="eff-class" id="effClass">—</span></span></div>
 <div class="eff-bar" id="seasonAvgBar" style="display:none" onclick="openLegend()"><span class="eff-label">📅 Saison-Schnitt</span><span class="eff-value"><span class="eff-pct" id="seasonPct">—%</span><span class="eff-frac" id="seasonFrac">0/0</span><span class="eff-class" id="seasonClass">—</span></span></div>
 <div class="field-container" id="statsFieldContainer" style="margin-top:6px">
 <svg viewBox="0 0 400 460" xmlns="http://www.w3.org/2000/svg">
@@ -370,7 +370,7 @@ async function syncToSupabase(session){
 }
 function updateSyncStatus(ok){const el=$('syncStatus');if(el)el.innerHTML=ok?'<span class="dot dot-green"></span>Synced':'<span class="dot dot-gray"></span>Offline'}
 
-let currentSession=null, selectedSessionIds=new Set(), filterClub='all', filterType='all', analysisMode=false, analysisShots=[], analysisKeepers=[], activeKeeperFilter='all';
+let currentSession=null, selectedSessionIds=new Set(), filterClub='all', filterType='all', analysisMode=false, analysisShots=[], analysisKeepers=[], analysisSessions=[], activeKeeperFilter='all';
 function keeperName(k){return k?((k.firstName||'')+' '+(k.lastName||'')).trim():''}
 let gameClock={running:false,minute:0,intervalId:null};
 
@@ -379,9 +379,23 @@ function saveSessions(arr){localStorage.setItem('gk_sessions',JSON.stringify(arr
 function saveCurrentSession(){
   if(!currentSession||currentSession.closed) return;
   currentSession.shots=[...state.shots];
+  currentSession.clockMinute=gameClock.minute;
+  currentSession.clockRunning=gameClock.running;
   const all=loadSessions(), idx=all.findIndex(s=>s.id===currentSession.id);
   if(idx>=0) all[idx]=currentSession; else all.push(currentSession);
-  saveSessions(all); syncToSupabase(currentSession).then(ok=>updateSyncStatus(ok));
+  saveSessions(all); localStorage.setItem('gk_active_session_id',currentSession.id);
+  syncToSupabase(currentSession).then(ok=>updateSyncStatus(ok));
+}
+function getKeeperPlaytime(session,keeperId,endMinute){
+  let chs=session.keeperChanges&&session.keeperChanges.length?session.keeperChanges:[{keeperId:(session.keepers&&session.keepers[0]?session.keepers[0].id:keeperId),minute:0}];
+  chs=[...chs].sort((a,b)=>a.minute-b.minute);
+  let total=0;
+  for(let i=0;i<chs.length;i++){
+    const start=chs[i].minute;
+    const end=i+1<chs.length?chs[i+1].minute:Math.max(endMinute||0,start);
+    if(chs[i].keeperId===keeperId)total+=Math.max(0,end-start);
+  }
+  return total;
 }
 
 const ZONE_LABEL={1:'OR',2:'OM',3:'OL',4:'MR',5:'MM',6:'ML',7:'UR',8:'UM',9:'UL'};
@@ -425,9 +439,11 @@ function startClock(){
     gameClock.minute+=1/60;
     if(gameClock.minute>=halfMax){gameClock.minute=halfMax;pauseClock();showToast('⏱ Halbzeit!','success')}
     updateClockDisplay();
+    gameClock.tickCount=(gameClock.tickCount||0)+1;
+    if(gameClock.tickCount%5===0)saveCurrentSession();
   },1000);
 }
-function pauseClock(){gameClock.running=false;if(gameClock.intervalId){clearInterval(gameClock.intervalId);gameClock.intervalId=null}$('btnClock').textContent='▶️'}
+function pauseClock(){gameClock.running=false;if(gameClock.intervalId){clearInterval(gameClock.intervalId);gameClock.intervalId=null}$('btnClock').textContent='▶️';saveCurrentSession()}
 function toggleClock(){if(gameClock.running)pauseClock();else startClock()}
 function updateClockDisplay(){
   const m=Math.floor(gameClock.minute), s=Math.floor((gameClock.minute%1)*60);
@@ -449,7 +465,7 @@ btnStartSession.addEventListener('click',()=>{
   const half=Math.max(1,parseInt($('setupHalf').value)||30);
   currentSession={id:Date.now().toString(),date:setupDateEl.value,club:setupClub,type:setupType,opponent:setupType==='training'?'':(setupOpponentEl.value.trim()||'Unbekannt'),halfLength:half,keepers:keepers.map(k=>({...k})),keeperChanges:[{keeperId:keepers[0].id,minute:0}],shots:[],closed:false};
   state.shots=[]; fullReset(); gameClock={running:false,minute:0,intervalId:null}; activeKeeperFilter='all';
-  state.activeKeeperId=keepers[0].id; analysisMode=false; analysisShots=[]; analysisKeepers=[];
+  state.activeKeeperId=keepers[0].id; analysisMode=false; analysisShots=[]; analysisKeepers=[]; analysisSessions=[];
   $('combinedInfo').style.display='none';
   updateActiveKeeperDisplay(); updateScore(); updateStats();
   $('btnOppGoal').textContent='Tor '+setupClub;
@@ -462,7 +478,7 @@ btnStartSession.addEventListener('click',()=>{
 
 $('headerNewGame').addEventListener('click',()=>{
   if(currentSession&&!currentSession.closed&&state.shots.length>0)saveCurrentSession();
-  currentSession=null; analysisMode=false; analysisShots=[]; analysisKeepers=[]; state.shots=[]; pauseClock();
+  currentSession=null; analysisMode=false; analysisShots=[]; analysisKeepers=[]; analysisSessions=[]; state.shots=[]; pauseClock();
   $('combinedInfo').style.display='none';
   renderSessionList(); showScreen('screenSetup');
 });
@@ -653,6 +669,25 @@ function updateEffBar(saves,total){
   $('effFrac').textContent=saves+'/'+total;
   const ec=$('effClass');ec.textContent=cls.label;ec.style.background=cls.bg;ec.style.color=cls.color;
   $('statsEffLabel').textContent=analysisMode?'📊 Kombiniert':(activeKeeperFilter!=='all'?'🧤 Gefiltert':'Effizienz Torwart');
+  const pt=getPlaytimeMinutes(), ptEl=$('effPlaytime');
+  if(pt!==null){ptEl.style.display='';ptEl.textContent=Math.floor(pt)+' min gespielt'}
+  else{ptEl.style.display='none'}
+}
+function getPlaytimeMinutes(){
+  if(activeKeeperFilter==='all')return null;
+  if(analysisMode){
+    if(!activeKeeperFilter.startsWith('name:'))return null;
+    const nm=activeKeeperFilter.slice(5).toLowerCase();
+    let total=0;
+    analysisSessions.forEach(s=>{
+      const match=(s.keepers||[]).find(k=>keeperName(k).toLowerCase()===nm);
+      if(match)total+=getKeeperPlaytime(s,match.id,s.clockMinute||0);
+    });
+    return total;
+  }
+  if(!currentSession)return null;
+  const end=(currentSession&&!currentSession.closed)?gameClock.minute:(currentSession.clockMinute||0);
+  return getKeeperPlaytime(currentSession,activeKeeperFilter,end);
 }
 function updateFieldHeatmap(shots){
   const s=shots||getDisplayShots();
@@ -801,7 +836,7 @@ function viewSession(id){
   $('combinedInfo').style.display='none';
   state.shots=[...session.shots];
   currentSession={...session}; state.activeKeeperId=session.keeperChanges&&session.keeperChanges.length>0?session.keeperChanges[0].keeperId:(session.keepers?session.keepers[0].id:'k1');
-  analysisMode=false; analysisShots=[]; analysisKeepers=[]; activeKeeperFilter='all';
+  analysisMode=false; analysisShots=[]; analysisKeepers=[]; analysisSessions=[]; activeKeeperFilter='all';
   updateActiveKeeperDisplay(); updateStats(); updateScore(); renderKeeperFilter();
   $('btnOppGoal').textContent='Tor '+(session.club||'ESV');
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -830,7 +865,7 @@ $('btnCombineSessions').addEventListener('click',()=>{
   const all=loadSessions(), selected=all.filter(s=>selectedSessionIds.has(s.id));
   const combined=selected.flatMap(s=>s.shots.map(sh=>({...sh,keeperName:keeperName((s.keepers||[]).find(k=>k.id===sh.keeperId))})));
   if(combined.length===0){showToast('Keine Shots','error');return}
-  const seen=new Set(); analysisKeepers=[];
+  const seen=new Set(); analysisKeepers=[]; analysisSessions=selected;
   selected.forEach(s=>(s.keepers||[]).forEach(k=>{const nm=keeperName(k),key=nm.toLowerCase();if(nm&&!seen.has(key)){seen.add(key);analysisKeepers.push({name:nm,number:k.number})}}));
   analysisMode=true; analysisShots=combined; state.shots=combined; activeKeeperFilter='all';
   renderKeeperFilter(); updateStats();
@@ -853,6 +888,30 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')$('legendMask').clas
 document.querySelectorAll('#screenInput .target-zone').forEach(el=>el.style.fill='var(--q-empty)');
 document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>el.style.fill='var(--q-empty)');
 renderSessionList();
+
+// AKTIVES SPIEL WIEDERHERSTELLEN (Uhr/Spielstand/Shots ueberleben Reload, Tab-Wechsel, Hintergrund)
+(function restoreActiveSession(){
+  const activeId=localStorage.getItem('gk_active_session_id');
+  if(!activeId)return;
+  const session=loadSessions().find(s=>s.id===activeId&&!s.closed);
+  if(!session)return;
+  currentSession=session;
+  state.shots=[...session.shots];
+  state.activeKeeperId=session.keeperChanges&&session.keeperChanges.length?session.keeperChanges[session.keeperChanges.length-1].keeperId:(session.keepers?session.keepers[0].id:'k1');
+  gameClock={running:false,minute:session.clockMinute||0,intervalId:null};
+  updateClockDisplay(); updateActiveKeeperDisplay(); updateScore(); updateStats();
+  $('btnOppGoal').textContent='Tor '+(session.club||'ESV');
+  $('statusSession').textContent=`${TYPE_EMOJI[session.type]}${session.club}${session.opponent?' · '+session.opponent:''}`;
+  $('headerNewGame').textContent='⚙️';
+  showScreen('screenInput');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.tab-btn[data-screen="screenInput"]').classList.add('active');
+})();
+
+// Sicherheitsnetz: Speicherstand vor Hintergrund/Tab-Wechsel/Reload sichern
+window.addEventListener('pagehide',()=>{if(currentSession&&!currentSession.closed)saveCurrentSession()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&currentSession&&!currentSession.closed)saveCurrentSession()});
+
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{r.update()}).catch(()=>{});
 updateSyncStatus(navigator.onLine);
 window.addEventListener('online',()=>updateSyncStatus(true));
