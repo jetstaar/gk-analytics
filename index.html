@@ -370,7 +370,8 @@ async function syncToSupabase(session){
 }
 function updateSyncStatus(ok){const el=$('syncStatus');if(el)el.innerHTML=ok?'<span class="dot dot-green"></span>Synced':'<span class="dot dot-gray"></span>Offline'}
 
-let currentSession=null, selectedSessionIds=new Set(), filterClub='all', filterType='all', analysisMode=false, analysisShots=[], activeKeeperFilter='all';
+let currentSession=null, selectedSessionIds=new Set(), filterClub='all', filterType='all', analysisMode=false, analysisShots=[], analysisKeepers=[], activeKeeperFilter='all';
+function keeperName(k){return k?((k.firstName||'')+' '+(k.lastName||'')).trim():''}
 let gameClock={running:false,minute:0,intervalId:null};
 
 function loadSessions(){return JSON.parse(localStorage.getItem('gk_sessions')||'[]')}
@@ -448,7 +449,7 @@ btnStartSession.addEventListener('click',()=>{
   const half=Math.max(1,parseInt($('setupHalf').value)||30);
   currentSession={id:Date.now().toString(),date:setupDateEl.value,club:setupClub,type:setupType,opponent:setupType==='training'?'':(setupOpponentEl.value.trim()||'Unbekannt'),halfLength:half,keepers:keepers.map(k=>({...k})),keeperChanges:[{keeperId:keepers[0].id,minute:0}],shots:[],closed:false};
   state.shots=[]; fullReset(); gameClock={running:false,minute:0,intervalId:null}; activeKeeperFilter='all';
-  state.activeKeeperId=keepers[0].id; analysisMode=false; analysisShots=[];
+  state.activeKeeperId=keepers[0].id; analysisMode=false; analysisShots=[]; analysisKeepers=[];
   $('combinedInfo').style.display='none';
   updateActiveKeeperDisplay(); updateScore(); updateStats();
   $('btnOppGoal').textContent='Tor '+setupClub;
@@ -461,7 +462,7 @@ btnStartSession.addEventListener('click',()=>{
 
 $('headerNewGame').addEventListener('click',()=>{
   if(currentSession&&!currentSession.closed&&state.shots.length>0)saveCurrentSession();
-  currentSession=null; analysisMode=false; analysisShots=[]; state.shots=[]; pauseClock();
+  currentSession=null; analysisMode=false; analysisShots=[]; analysisKeepers=[]; state.shots=[]; pauseClock();
   $('combinedInfo').style.display='none';
   renderSessionList(); showScreen('screenSetup');
 });
@@ -520,10 +521,12 @@ function updateScore(){
   $('scoreOwn').textContent=own;
   $('scoreOpp').textContent=opp;
 }
+function currentScoreSnapshot(){return{own:state.shots.filter(s=>s.opponentGoal).length,opp:state.shots.filter(s=>s.outcome==='goal'&&!s.opponentGoal).length}}
 $('btnOppGoal').addEventListener('click',()=>{
   if(currentSession&&currentSession.closed){showToast('🔒 Spiel abgeschlossen','error');return}
+  const sc0=currentScoreSnapshot();
   // Log as own team goal (opponentGoal=true = our team scored)
-  state.shots.push({id:'og_'+Date.now(),shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,timestamp:new Date().toISOString()});
+  state.shots.push({id:'og_'+Date.now(),shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,scoreOwn:sc0.own,scoreOpp:sc0.opp,timestamp:new Date().toISOString()});
   updateStats(); updateScore(); saveCurrentSession();
   fullReset();
   if(!gameClock.running&&!gameClock.intervalId)startClock();
@@ -560,8 +563,8 @@ document.querySelectorAll('.bodypart-btn').forEach(btn=>{
   btn.addEventListener('click',function(){
     document.querySelectorAll('.bodypart-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');state.bodyPart=this.dataset.part;state.bodyDetail=null;
     document.querySelectorAll('.bodypart-detail-btn').forEach(b=>b.classList.remove('selected'));
-    if(state.bodyPart==='hand'){bodypartDetail.style.display='flex';$('btnHandTief').style.display='';$('btnFussHoch').style.display='none';$('btnFussHalbhoch').style.display='none';btnSubmit.disabled=true;selDisplay.textContent='🤚 Detail wählen'}
-    else if(state.bodyPart==='fuss'){bodypartDetail.style.display='flex';$('btnHandTief').style.display='none';$('btnFussHoch').style.display='';$('btnFussHalbhoch').style.display='';btnSubmit.disabled=true;selDisplay.textContent='🤚 Detail wählen'}
+    if(state.bodyPart==='hand'){bodypartDetail.style.display='flex';$('btnHandTief').style.display='';$('btnFussHoch').style.display='none';$('btnFussHalbhoch').style.display='none';btnSubmit.disabled=false;selDisplay.textContent='🤚 Detail optional — eintragen möglich'}
+    else if(state.bodyPart==='fuss'){bodypartDetail.style.display='flex';$('btnHandTief').style.display='none';$('btnFussHoch').style.display='';$('btnFussHalbhoch').style.display='';btnSubmit.disabled=false;selDisplay.textContent='🤚 Detail optional — eintragen möglich'}
     else{bodypartDetail.style.display='none';btnSubmit.disabled=false;selDisplay.textContent='✅ Körper — eintragen'}
   });
 });
@@ -577,7 +580,8 @@ document.querySelectorAll('.bodypart-detail-btn').forEach(btn=>{
 btnSubmit.addEventListener('click',()=>{
   if(!state.shooterZone||!state.targetZone||!state.outcome)return;
   if(currentSession&&currentSession.closed){showToast('🔒 Spiel abgeschlossen','error');return}
-  const shot={id:Date.now()+'_'+Math.random().toString(36).slice(2,6),shooterZone:state.shooterZone,targetZone:state.targetZone,outcome:state.outcome,opponentGoal:false,is1v1:state.is1v1,bodyPart:state.bodyPart,bodyDetail:state.bodyDetail,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,timestamp:new Date().toISOString()};
+  const sc0=currentScoreSnapshot();
+  const shot={id:Date.now()+'_'+Math.random().toString(36).slice(2,6),shooterZone:state.shooterZone,targetZone:state.targetZone,outcome:state.outcome,opponentGoal:false,is1v1:state.is1v1,bodyPart:state.bodyPart,bodyDetail:state.bodyDetail,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,scoreOwn:sc0.own,scoreOpp:sc0.opp,timestamp:new Date().toISOString()};
   state.shots.push(shot); updateStats(); updateScore();
   saveCurrentSession();
   fullReset();
@@ -616,7 +620,14 @@ function fullReset(){
 // STATS
 function getDisplayShots(){
   let shots=analysisMode?analysisShots:state.shots;
-  if(activeKeeperFilter!=='all')shots=shots.filter(s=>s.keeperId===activeKeeperFilter);
+  if(activeKeeperFilter!=='all'){
+    if(analysisMode&&activeKeeperFilter.startsWith('name:')){
+      const nm=activeKeeperFilter.slice(5).toLowerCase();
+      shots=shots.filter(s=>(s.keeperName||'').toLowerCase()===nm);
+    }else{
+      shots=shots.filter(s=>s.keeperId===activeKeeperFilter);
+    }
+  }
   return shots;
 }
 function getDisplaySaves(shots){return shots.filter(s=>s.outcome==='saved'&&!s.opponentGoal).length}
@@ -676,7 +687,8 @@ function updateHistory(shots){
     if(sh.opponentGoal)lbl=(currentSession?currentSession.club:'')+' Tor';
     const sl=SHOOTER_LABEL[sh.shooterZone]||sh.shooterZone,tl=ZONE_LABEL[sh.targetZone]||sh.targetZone;
     const mn=sh.gameMinute!==undefined?Math.floor(sh.gameMinute)+1+"'":'';
-    return `<div class="history-item ${cls}"><span class="h-icon">${icon}</span><span class="h-info"><strong>${sh.opponentGoal?'—':sl}${v1}${sh.opponentGoal?'':'→'+tl}</strong> ${lbl}${body}</span><span class="h-time">${mn}</span></div>`;
+    const scoreStr=sh.scoreOwn!==undefined?' · '+sh.scoreOwn+':'+sh.scoreOpp:'';
+    return `<div class="history-item ${cls}"><span class="h-icon">${icon}</span><span class="h-info"><strong>${sh.opponentGoal?'—':sl}${v1}${sh.opponentGoal?'':'→'+tl}</strong> ${lbl}${body}</span><span class="h-time">${mn}${scoreStr}</span></div>`;
   }).join('');
 }
 let chartInstance=null;
@@ -693,24 +705,50 @@ function updateChart(shots){
 function renderKeeperFilter(){
   const el=$('keeperFilter');
   let html='<button class="keeper-filter-btn'+(activeKeeperFilter==='all'?' active':'')+'" onclick="setKeeperFilter(\'all\')">Alle</button>';
-  const keepers=currentSession&&currentSession.keepers?currentSession.keepers:[];
-  keepers.forEach(k=>{
-    html+='<button class="keeper-filter-btn'+(activeKeeperFilter===k.id?' active':'')+'" onclick="setKeeperFilter(\''+k.id+'\')">#'+k.number+' '+k.firstName+'</button>';
-  });
+  if(analysisMode){
+    analysisKeepers.forEach(k=>{
+      const val='name:'+k.name;
+      html+='<button class="keeper-filter-btn'+(activeKeeperFilter===val?' active':'')+'" onclick="setKeeperFilter(this.dataset.v)" data-v="'+val.replace(/"/g,'&quot;')+'">#'+k.number+' '+k.name+'</button>';
+    });
+  }else{
+    const keepers=currentSession&&currentSession.keepers?currentSession.keepers:[];
+    keepers.forEach(k=>{
+      html+='<button class="keeper-filter-btn'+(activeKeeperFilter===k.id?' active':'')+'" onclick="setKeeperFilter(\''+k.id+'\')">#'+k.number+' '+k.firstName+'</button>';
+    });
+  }
   el.innerHTML=html;
 }
 function setKeeperFilter(id){activeKeeperFilter=id;renderKeeperFilter();updateStats()}
-// Fix for keeper filter buttons
-function updateKeeperFilterButtons(){} // handled inline
 
-// SEASON AVERAGE (per club)
+// SEASON AVERAGE (per club, optional pro Torhüter via Namensabgleich)
+function getActiveKeeperName(){
+  if(activeKeeperFilter==='all')return null;
+  if(analysisMode&&activeKeeperFilter.startsWith('name:'))return activeKeeperFilter.slice(5);
+  if(!analysisMode&&currentSession&&currentSession.keepers){
+    const k=currentSession.keepers.find(k=>k.id===activeKeeperFilter);
+    if(k)return keeperName(k);
+  }
+  return null;
+}
 function updateSeasonAverage(){
-  const all=loadSessions().filter(s=>filterClub==='all'||s.club===filterClub); let ts=0,tv=0;
-  all.forEach(s=>s.shots.forEach(sh=>{if(!sh.opponentGoal){ts++;if(sh.outcome==='saved')tv++}}));
+  const all=loadSessions().filter(s=>filterClub==='all'||s.club===filterClub);
+  let ts=0,tv=0,label='📅 Saison-Schnitt';
+  const selName=getActiveKeeperName();
+  if(selName){
+    const nmLower=selName.toLowerCase();
+    all.forEach(s=>{
+      const match=(s.keepers||[]).find(k=>keeperName(k).toLowerCase()===nmLower);
+      if(match)s.shots.forEach(sh=>{if(!sh.opponentGoal&&sh.keeperId===match.id){ts++;if(sh.outcome==='saved')tv++}});
+    });
+    label='📅 Saison-Schnitt · '+selName;
+  }else{
+    all.forEach(s=>s.shots.forEach(sh=>{if(!sh.opponentGoal){ts++;if(sh.outcome==='saved')tv++}}));
+  }
   const bar=$('seasonAvgBar');
   if(ts<10){bar.style.display='none';return}
   bar.style.display='';
   const pct=Math.round(tv/ts*100), cls=classifySP(pct,ts);
+  bar.querySelector('.eff-label').textContent=label;
   $('seasonPct').textContent=pct+'%';$('seasonPct').style.color=cls.color;
   $('seasonFrac').textContent=tv+'/'+ts;
   const sc=$('seasonClass');sc.textContent=cls.label;sc.style.background=cls.bg;sc.style.color=cls.color;
@@ -763,7 +801,7 @@ function viewSession(id){
   $('combinedInfo').style.display='none';
   state.shots=[...session.shots];
   currentSession={...session}; state.activeKeeperId=session.keeperChanges&&session.keeperChanges.length>0?session.keeperChanges[0].keeperId:(session.keepers?session.keepers[0].id:'k1');
-  analysisMode=false; analysisShots=[]; activeKeeperFilter='all';
+  analysisMode=false; analysisShots=[]; analysisKeepers=[]; activeKeeperFilter='all';
   updateActiveKeeperDisplay(); updateStats(); updateScore(); renderKeeperFilter();
   $('btnOppGoal').textContent='Tor '+(session.club||'ESV');
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -790,9 +828,12 @@ $('btnDeleteSessions').addEventListener('click',()=>{
 $('btnCombineSessions').addEventListener('click',()=>{
   if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}
   const all=loadSessions(), selected=all.filter(s=>selectedSessionIds.has(s.id));
-  const combined=selected.flatMap(s=>s.shots); if(combined.length===0){showToast('Keine Shots','error');return}
-  analysisMode=true; analysisShots=combined; state.shots=combined;
-  updateStats();
+  const combined=selected.flatMap(s=>s.shots.map(sh=>({...sh,keeperName:keeperName((s.keepers||[]).find(k=>k.id===sh.keeperId))})));
+  if(combined.length===0){showToast('Keine Shots','error');return}
+  const seen=new Set(); analysisKeepers=[];
+  selected.forEach(s=>(s.keepers||[]).forEach(k=>{const nm=keeperName(k),key=nm.toLowerCase();if(nm&&!seen.has(key)){seen.add(key);analysisKeepers.push({name:nm,number:k.number})}}));
+  analysisMode=true; analysisShots=combined; state.shots=combined; activeKeeperFilter='all';
+  renderKeeperFilter(); updateStats();
   const info=selected.map(s=>{const d=new Date(s.date+'T12:00:00');return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' '+(s.opponent?'vs. '+s.opponent:TYPE_LABEL[s.type])}).join(' · ');
   $('combinedInfo').textContent='📊 Kombiniert: '+info;
   $('combinedInfo').style.display='block';
