@@ -261,14 +261,14 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 </g>
 <path d="M 80 180 A 120 120 0 0 0 320 180 Z" fill="#1e4fa8"/><path d="M 80 180 A 120 120 0 0 0 320 180" fill="none" stroke="#4a8fe8" stroke-width="1.5"/>
 <g id="shooterZones">
-<path d="M 80 180 A 120 120 0 0 0 103 251 L 38 298 A 200 200 0 0 1 0 180 Z" class="zone-cell shooter-zone" data-zone="A" stroke="var(--bg)" stroke-width="2"/>
-<path d="M 103 251 A 120 120 0 0 0 163 294 L 138 370 A 200 200 0 0 1 38 298 Z" class="zone-cell shooter-zone" data-zone="B" stroke="var(--bg)" stroke-width="2"/>
-<path d="M 163 294 A 120 120 0 0 0 237 294 L 262 370 A 200 200 0 0 1 138 370 Z" class="zone-cell shooter-zone" data-zone="C" stroke="var(--bg)" stroke-width="2"/>
-<path d="M 237 294 A 120 120 0 0 0 297 251 L 362 298 A 200 200 0 0 1 262 370 Z" class="zone-cell shooter-zone" data-zone="D" stroke="var(--bg)" stroke-width="2"/>
-<path d="M 297 251 A 120 120 0 0 0 320 180 L 400 180 A 200 200 0 0 1 362 298 Z" class="zone-cell shooter-zone" data-zone="E" stroke="var(--bg)" stroke-width="2"/>
-<path d="M 0 180 A 200 200 0 0 0 100 353 L 20 460 L 0 460 Z" class="zone-cell shooter-zone" data-zone="F" stroke="var(--bg)" stroke-width="2"/>
-<path d="M 100 353 A 200 200 0 0 0 300 353 L 380 460 L 20 460 Z" class="zone-cell shooter-zone" data-zone="G" stroke="var(--bg)" stroke-width="2"/>
-<path d="M 300 353 A 200 200 0 0 0 400 180 L 400 460 L 380 460 Z" class="zone-cell shooter-zone" data-zone="H" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 80 180 A 120 120 0 0 0 103 251 L 38 298 A 200 200 0 0 1 0 180 Z" class="zone-cell shooter-zone" data-zone="LA" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 103 251 A 120 120 0 0 0 163 294 L 138 370 A 200 200 0 0 1 38 298 Z" class="zone-cell shooter-zone" data-zone="KL" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 163 294 A 120 120 0 0 0 237 294 L 262 370 A 200 200 0 0 1 138 370 Z" class="zone-cell shooter-zone" data-zone="KM" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 237 294 A 120 120 0 0 0 297 251 L 362 298 A 200 200 0 0 1 262 370 Z" class="zone-cell shooter-zone" data-zone="KR" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 297 251 A 120 120 0 0 0 320 180 L 400 180 A 200 200 0 0 1 362 298 Z" class="zone-cell shooter-zone" data-zone="RA" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 0 180 A 200 200 0 0 0 100 353 L 20 460 L 0 460 Z" class="zone-cell shooter-zone" data-zone="HL" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 100 353 A 200 200 0 0 0 300 353 L 380 460 L 20 460 Z" class="zone-cell shooter-zone" data-zone="HM" stroke="var(--bg)" stroke-width="2"/>
+<path d="M 300 353 A 200 200 0 0 0 400 180 L 400 460 L 380 460 Z" class="zone-cell shooter-zone" data-zone="HR" stroke="var(--bg)" stroke-width="2"/>
 <circle cx="200" cy="243" r="24" class="zone-cell shooter-zone" data-zone="7m" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
 </g>
 <g style="pointer-events:none">
@@ -458,7 +458,7 @@ function getKeeperPlaytime(session,keeperId,endMinute){
 }
 
 const ZONE_LABEL={1:'OR',2:'OM',3:'OL',4:'MR',5:'MM',6:'ML',7:'UR',8:'UM',9:'UL'};
-const SHOOTER_LABEL={'A':'LA','B':'KL','C':'KM','D':'KR','E':'RA','F':'HL','G':'HM','H':'HR','7m':'7m'};
+const SHOOTER_LABEL={'LA':'LA','KL':'KL','KM':'KM','KR':'KR','RA':'RA','HL':'HL','HM':'HM','HR':'HR','7m':'7m','A':'LA','B':'KL','C':'KM','D':'KR','E':'RA','F':'HL','G':'HM','H':'HR'};
 const TYPE_LABEL={heim:'Heimspiel',auswaerts:'Auswärtsspiel',freundschaft:'Freundschaftsspiel',training:'Training'};
 const TYPE_EMOJI={heim:'🏠',auswaerts:'✈️',freundschaft:'🤝',training:'🏃'};
 const SP_TIERS=[
@@ -1089,7 +1089,7 @@ function renderCorrMatrix(shots){
   const el=$('corrMatrix');if(!el)return;
   const goals=shots.filter(s=>!s.opponentGoal&&s.outcome==='goal'&&s.shooterZone!=='-'&&s.targetZone);
   if(goals.length<1){el.style.display='none';return}
-  const szUsed=['A','B','C','D','E','F','G','H','7m'];
+  const szUsed=['LA','KL','KM','KR','RA','HL','HM','HR','7m'];
   const tzUsed=[1,2,3,4,5,6,7,8,9];
   const mx={};goals.forEach(g=>{const k=g.shooterZone+'_'+g.targetZone;mx[k]=(mx[k]||0)+1});
   const maxV=Math.max(...Object.values(mx));
@@ -1275,43 +1275,43 @@ function loadDemoData(){
   function push1(n,zone,tz,res,v1,bp,bd,min,kid){if(res==='goal')g1++;g1shots.push({id:'d1_'+n,shooterZone:zone,targetZone:tz,outcome:res,opponentGoal:false,is1v1:v1||false,bodyPart:bp||null,bodyDetail:bd||null,gameMinute:min,keeperId:kid,scoreOwn:o1,scoreOpp:g1,timestamp:'2026-06-28T10:00:00.000Z'})}
   function own1(n,min,kid){o1++;g1shots.push({id:'d1_og'+n,shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:min,keeperId:kid,scoreOwn:o1,scoreOpp:g1,timestamp:'2026-06-28T10:00:00.000Z'})}
   // HZ1 — Dominik Müller (k1)
-  // HZ1 — Dominik Müller (k1) — Zonen: A=LA B=KL C=KM D=KR E=RA F=HL G=HM H=HR
-  push1(1,'F',7,'saved',false,'fuss','tief',3,'k1');own1(1,4,'k1');
-  push1(2,'C',5,'goal',false,null,null,6,'k1');own1(2,8,'k1');
-  push1(3,'E',3,'saved',false,'hand','hoch',10,'k1');
+  // HZ1 — Dominik Müller (k1)
+  push1(1,'HL',7,'saved',false,'fuss','tief',3,'k1');own1(1,4,'k1');
+  push1(2,'KM',5,'goal',false,null,null,6,'k1');own1(2,8,'k1');
+  push1(3,'RA',3,'saved',false,'hand','hoch',10,'k1');
   push1(4,'7m',5,'saved',false,'hand','halbhoch',12,'k1');
-  push1(5,'B',8,'goal',false,null,null,15,'k1');own1(3,16,'k1');
-  push1(6,'G',2,'saved',false,'koerper',null,18,'k1');
-  push1(7,'D',6,'goal',true,null,null,20,'k1');own1(4,22,'k1');
-  push1(8,'A',7,'saved',false,'fuss','tief',24,'k1');own1(5,25,'k1');
-  push1(9,'C',5,'saved',false,'koerper',null,27,'k1');
+  push1(5,'KL',8,'goal',false,null,null,15,'k1');own1(3,16,'k1');
+  push1(6,'HM',2,'saved',false,'koerper',null,18,'k1');
+  push1(7,'KR',6,'goal',true,null,null,20,'k1');own1(4,22,'k1');
+  push1(8,'LA',7,'saved',false,'fuss','tief',24,'k1');own1(5,25,'k1');
+  push1(9,'KM',5,'saved',false,'koerper',null,27,'k1');
   push1(10,'7m',8,'goal',false,null,null,29,'k1');own1(6,30,'k1');
   // HZ2 — Jonas Berger (k2)
-  push1(11,'F',4,'saved',false,'hand','halbhoch',32,'k2');
-  push1(12,'H',3,'saved',false,'hand','hoch',34,'k2');own1(7,35,'k2');
-  push1(13,'C',5,'goal',false,null,null,37,'k2');own1(8,39,'k2');
-  push1(14,'B',8,'goal',true,null,null,41,'k2');
+  push1(11,'HL',4,'saved',false,'hand','halbhoch',32,'k2');
+  push1(12,'HR',3,'saved',false,'hand','hoch',34,'k2');own1(7,35,'k2');
+  push1(13,'KM',5,'goal',false,null,null,37,'k2');own1(8,39,'k2');
+  push1(14,'KL',8,'goal',true,null,null,41,'k2');
   push1(15,'7m',5,'saved',false,'hand','halbhoch',43,'k2');own1(9,45,'k2');
-  push1(16,'E',3,'saved',false,'koerper',null,47,'k2');
-  push1(17,'C',6,'goal',false,null,null,50,'k2');own1(10,51,'k2');
-  push1(18,'G',2,'saved',false,'hand','hoch',53,'k2');
-  push1(19,'F',7,'saved',false,'fuss','tief',56,'k2');own1(11,58,'k2');
+  push1(16,'RA',3,'saved',false,'koerper',null,47,'k2');
+  push1(17,'KM',6,'goal',false,null,null,50,'k2');own1(10,51,'k2');
+  push1(18,'HM',2,'saved',false,'hand','hoch',53,'k2');
+  push1(19,'HL',7,'saved',false,'fuss','tief',56,'k2');own1(11,58,'k2');
   const session1={id:'demo_game_1',date:'2026-06-28',club:'ESV',type:'heim',opponent:'TSV Weiden',halfLength:30,keepers:[{id:'k1',number:12,firstName:'Dominik',lastName:'Müller'},{id:'k2',number:1,firstName:'Jonas',lastName:'Berger'}],keeperChanges:[{keeperId:'k2',minute:30}],shots:g1shots,clockMinute:60,clockRunning:false,closed:true};
   // Game 2: ESV Auswärts bei SG Regensburg, 05.07.2026, nur Dominik Müller
   const g2shots=[];
   let o2=0,g2=0;
   function push2(n,zone,tz,res,v1,bp,bd,min){if(res==='goal')g2++;g2shots.push({id:'d2_'+n,shooterZone:zone,targetZone:tz,outcome:res,opponentGoal:false,is1v1:v1||false,bodyPart:bp||null,bodyDetail:bd||null,gameMinute:min,keeperId:'k1',scoreOwn:o2,scoreOpp:g2,timestamp:'2026-07-05T14:00:00.000Z'})}
   function own2(n,min){o2++;g2shots.push({id:'d2_og'+n,shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:min,keeperId:'k1',scoreOwn:o2,scoreOpp:g2,timestamp:'2026-07-05T14:00:00.000Z'})}
-  push2(1,'C',5,'goal',false,null,null,2);own2(1,4);
-  push2(2,'F',7,'saved',false,'fuss','tief',6);push2(3,'E',3,'saved',false,'hand','hoch',9);own2(2,10);
-  push2(4,'7m',5,'goal',false,null,null,12);push2(5,'B',8,'saved',false,'koerper',null,15);own2(3,16);
-  push2(6,'C',5,'saved',false,'hand','halbhoch',18);push2(7,'G',2,'goal',true,null,null,21);own2(4,23);
-  push2(8,'A',7,'saved',false,'fuss','tief',25);push2(9,'F',4,'goal',false,null,null,27);
+  push2(1,'KM',5,'goal',false,null,null,2);own2(1,4);
+  push2(2,'HL',7,'saved',false,'fuss','tief',6);push2(3,'RA',3,'saved',false,'hand','hoch',9);own2(2,10);
+  push2(4,'7m',5,'goal',false,null,null,12);push2(5,'KL',8,'saved',false,'koerper',null,15);own2(3,16);
+  push2(6,'KM',5,'saved',false,'hand','halbhoch',18);push2(7,'HM',2,'goal',true,null,null,21);own2(4,23);
+  push2(8,'LA',7,'saved',false,'fuss','tief',25);push2(9,'HL',4,'goal',false,null,null,27);
   push2(10,'7m',8,'saved',false,'hand','halbhoch',29);
-  own2(5,32);push2(11,'D',6,'goal',false,null,null,34);push2(12,'C',5,'saved',false,'koerper',null,37);own2(6,39);
-  push2(13,'F',7,'saved',false,'fuss','tief',41);push2(14,'F',8,'goal',false,null,null,43);own2(7,44);
-  push2(15,'7m',5,'saved',false,'hand','halbhoch',46);push2(16,'E',3,'goal',true,null,null,49);own2(8,51);
-  push2(17,'G',2,'saved',false,'hand','hoch',53);push2(18,'C',5,'saved',false,'koerper',null,56);own2(9,58);
+  own2(5,32);push2(11,'KR',6,'goal',false,null,null,34);push2(12,'KM',5,'saved',false,'koerper',null,37);own2(6,39);
+  push2(13,'HL',7,'saved',false,'fuss','tief',41);push2(14,'HL',8,'goal',false,null,null,43);own2(7,44);
+  push2(15,'7m',5,'saved',false,'hand','halbhoch',46);push2(16,'RA',3,'goal',true,null,null,49);own2(8,51);
+  push2(17,'HM',2,'saved',false,'hand','hoch',53);push2(18,'KM',5,'saved',false,'koerper',null,56);own2(9,58);
   const session2={id:'demo_game_2',date:'2026-07-05',club:'ESV',type:'auswaerts',opponent:'SG Regensburg',halfLength:30,keepers:[{id:'k1',number:12,firstName:'Dominik',lastName:'Müller'}],keeperChanges:[],shots:g2shots,clockMinute:60,clockRunning:false,closed:true};
   const updated=existing.filter(s=>!DEMO_IDS.includes(s.id));
   updated.unshift(session2);updated.unshift(session1);
