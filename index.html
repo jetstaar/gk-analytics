@@ -190,6 +190,13 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 .special-stat-row .ss-pct{font-weight:800;min-width:38px;text-align:right}
 /* s-actions 4th button */
 .btn-export-csv{flex:1;padding:8px;border-radius:10px;border:2px solid #7a8fa8;color:#7a8fa8;background:transparent;font-size:12px;font-weight:700;cursor:pointer}
+/* Roster */
+.roster-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)}
+.roster-row:last-child{border-bottom:none}
+.roster-toggle{flex:1;padding:9px 12px;border-radius:10px;border:2px solid var(--border);background:var(--card);color:var(--text-dim);font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:all .15s;touch-action:manipulation}
+.roster-toggle.active{border-color:var(--gold);color:var(--gold);background:rgba(244,185,66,0.1)}
+.roster-del{background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;padding:4px 6px;opacity:.45;line-height:1}
+.roster-del:active{opacity:1}
 </style></head><body>
 
 <header><h1>GK-Analytics <small>B-Jugend</small></h1><button class="header-btn" id="headerNewGame">+ Neu</button></header>
@@ -206,8 +213,8 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div class="setup-field" id="opponentField"><div class="setup-label">Gegner</div><input type="text" id="setupOpponent" class="setup-input" placeholder="z.B. TSV Musterstadt"/></div>
 <div class="setup-field"><div class="setup-label">Halbzeit (Minuten)</div><div class="setup-half"><input type="number" id="setupHalf" class="setup-input" value="30" min="1" max="60"/><span>min</span></div></div>
 <div class="setup-field"><div class="setup-keeper-header"><div class="setup-label">Torhüter</div></div>
-<div id="keeperList"></div>
-<button class="setup-keeper-add" id="btnAddKeeper">➕ Torhüter hinzufügen</button></div>
+<div id="rosterList" style="margin-bottom:4px"></div>
+<button class="setup-keeper-add" id="btnAddKeeper">➕ Neuen Torhüter anlegen</button></div>
 <button class="setup-start-btn" id="btnStartSession">🎯 Aufzeichnung starten</button>
 </div></div>
 
@@ -494,13 +501,71 @@ $('btnClock').addEventListener('click',toggleClock);
 // SETUP
 const setupDateEl=$('setupDate'), setupOpponentEl=$('setupOpponent'), opponentField=$('opponentField'), btnStartSession=$('btnStartSession');
 setupDateEl.value=new Date().toISOString().slice(0,10);
-let setupClub='ESV', setupType='heim', keepers=[{id:'k1',number:1,firstName:'Dominik',lastName:''}], nextKId=2;
+let setupClub='ESV', setupType='heim', keepers=[], nextKId=1;
+let selectedRosterIds=new Set(), rosterGameNumbers={};
+
+// ROSTER PERSISTENCE
+function loadRoster(){return JSON.parse(localStorage.getItem('gk_keeper_roster')||'[]')}
+function saveRoster(arr){localStorage.setItem('gk_keeper_roster',JSON.stringify(arr))}
+function rosterToName(r){return r.name||((r.firstName||'')+' '+(r.lastName||'')).trim()}
+function rebuildKeepersFromRoster(){
+  const roster=loadRoster();let kIdx=1;keepers=[];
+  selectedRosterIds.forEach(rid=>{
+    const r=roster.find(x=>x.id===rid);if(!r)return;
+    const parts=rosterToName(r).split(' ');
+    keepers.push({id:'k'+kIdx++,number:rosterGameNumbers[rid]||r.defaultNumber||1,firstName:parts[0]||'',lastName:parts.slice(1).join(' ')});
+  });
+  nextKId=kIdx;
+}
+function renderRosterList(){
+  const roster=loadRoster(),el=$('rosterList');
+  if(!roster.length){el.innerHTML='<div style="font-size:12px;color:var(--text-dim);padding:6px 0 2px">Noch keine Torhüter. Bitte anlegen.</div>';return}
+  el.innerHTML=roster.map(r=>{
+    const sel=selectedRosterIds.has(r.id),nm=rosterToName(r),nr=rosterGameNumbers[r.id]||r.defaultNumber||1;
+    const rId=r.id.replace(/'/g,"\\'");
+    return `<div class="roster-row">
+      <button class="roster-toggle${sel?' active':''}" onclick="toggleRoster('${rId}')">${sel?'✓ ':''}${nm}</button>
+      ${sel?`<input type="number" class="knr setup-input" value="${nr}" min="1" max="99" style="width:58px;flex-shrink:0;padding:8px 6px" onchange="rosterGameNumbers['${rId}']=+this.value;rebuildKeepersFromRoster()"/>`:''}
+      <button class="roster-del" onclick="deleteRoster('${rId}')">✕</button>
+    </div>`;
+  }).join('');
+}
+function toggleRoster(id){
+  if(selectedRosterIds.has(id)){selectedRosterIds.delete(id)}
+  else{selectedRosterIds.add(id);const r=loadRoster().find(x=>x.id===id);if(r&&!rosterGameNumbers[id])rosterGameNumbers[id]=r.defaultNumber||1}
+  rebuildKeepersFromRoster();renderRosterList();
+}
+function deleteRoster(id){
+  if(!confirm('Torhüter aus Roster löschen?'))return;
+  saveRoster(loadRoster().filter(r=>r.id!==id));
+  selectedRosterIds.delete(id);delete rosterGameNumbers[id];
+  rebuildKeepersFromRoster();renderRosterList();
+}
+function initRosterForSetup(){
+  // Auto-select all roster keepers when opening setup
+  const roster=loadRoster();
+  selectedRosterIds=new Set(roster.map(r=>r.id));
+  rosterGameNumbers={};roster.forEach(r=>{rosterGameNumbers[r.id]=r.defaultNumber||1});
+  rebuildKeepersFromRoster();renderRosterList();
+}
+initRosterForSetup();
+
 document.querySelectorAll('.setup-club-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-club-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupClub=this.dataset.club})});
 document.querySelectorAll('.setup-type-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-type-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupType=this.dataset.type;opponentField.style.display=setupType==='training'?'none':''})});
-function renderKeeperSetup(){const el=$('keeperList');el.innerHTML=keepers.map((k,i)=>`<div class="setup-keeper-row"><input class="knr" type="number" value="${k.number}" min="1" max="99" onchange="keepers[${i}].number=+this.value"/><input type="text" value="${k.firstName}" placeholder="Vorname" onchange="keepers[${i}].firstName=this.value"/><input type="text" value="${k.lastName}" placeholder="Nachname" onchange="keepers[${i}].lastName=this.value"/><span class="kdel" onclick="if(keepers.length>1){keepers.splice(${i},1);renderKeeperSetup()}">✕</span></div>`).join('')}
-renderKeeperSetup();
-$('btnAddKeeper').addEventListener('click',()=>{keepers.push({id:'k'+nextKId++,number:keepers.length+1,firstName:'',lastName:''});renderKeeperSetup()});
+$('btnAddKeeper').addEventListener('click',()=>{
+  const name=prompt('Name des Torhüters (Vorname Nachname):');
+  if(!name||!name.trim())return;
+  const numStr=prompt('Trikotnummer:','1');
+  const num=parseInt(numStr)||1;
+  const roster=loadRoster();
+  const id=Date.now().toString();
+  roster.push({id,name:name.trim(),defaultNumber:num});
+  saveRoster(roster);
+  selectedRosterIds.add(id);rosterGameNumbers[id]=num;
+  rebuildKeepersFromRoster();renderRosterList();
+});
 btnStartSession.addEventListener('click',()=>{
+  if(keepers.length===0){showToast('Bitte mindestens einen Torhüter auswählen','error');return}
   if(currentSession&&state.shots.length>0)saveCurrentSession();
   const half=Math.max(1,parseInt($('setupHalf').value)||30);
   currentSession={id:Date.now().toString(),date:setupDateEl.value,club:setupClub,type:setupType,opponent:setupType==='training'?'':(setupOpponentEl.value.trim()||'Unbekannt'),halfLength:half,keepers:keepers.map(k=>({...k})),keeperChanges:[{keeperId:keepers[0].id,minute:0}],shots:[],closed:false};
@@ -520,7 +585,7 @@ $('headerNewGame').addEventListener('click',()=>{
   if(currentSession&&!currentSession.closed&&state.shots.length>0)saveCurrentSession();
   currentSession=null; analysisMode=false; analysisShots=[]; analysisKeepers=[]; analysisSessions=[]; state.shots=[]; pauseClock();
   $('combinedInfo').style.display='none';
-  renderSessionList(); showScreen('screenSetup');
+  initRosterForSetup(); renderSessionList(); showScreen('screenSetup');
 });
 
 // KEEPER SWITCH
@@ -602,8 +667,8 @@ document.querySelectorAll('#screenInput .zone-cell').forEach(el=>{
     if(state.step>=3&&isShooter){resetToStep(1);state.shooterZone=zone;highlightShooter(zone);state.step=2;const l=SHOOTER_LABEL[zone]||zone;selDisplay.textContent=`📍 ${l} — Torzone tippen`}
   });
 });
-function highlightShooter(zone){document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>{el.style.fill=el.dataset.zone===zone?'rgba(244,185,66,0.5)':(alertZones.has(el.dataset.zone)?'rgba(232,73,58,0.38)':'var(--q-empty)')})}
-function clearSelection(){document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>el.style.fill=alertZones.has(el.dataset.zone)?'rgba(232,73,58,0.38)':'var(--q-empty)');document.querySelectorAll('#screenInput .target-zone').forEach(el=>el.style.fill='var(--q-empty)')}
+function highlightShooter(zone){document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>{el.style.fill=el.dataset.zone===zone?'rgba(244,185,66,0.5)':(alertZones.has(el.dataset.zone)?'rgba(232,73,58,0.6)':'var(--q-empty)')})}
+function clearSelection(){document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>el.style.fill=alertZones.has(el.dataset.zone)?'rgba(232,73,58,0.6)':'var(--q-empty)');document.querySelectorAll('#screenInput .target-zone').forEach(el=>el.style.fill='var(--q-empty)')}
 function enableOutcome(en){btnSave.disabled=!en;btnGoal.disabled=!en}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 
@@ -690,13 +755,19 @@ function getDisplaySaves(shots){return shots.filter(s=>s.outcome==='saved'&&!s.o
 function getDisplayGoals(shots){return shots.filter(s=>s.outcome==='goal'&&!s.opponentGoal).length}
 function getDisplayOppGoals(shots){return shots.filter(s=>s.opponentGoal).length}
 
+function getActiveKeeperShotStats(){
+  if(!state.activeKeeperId)return{saves:0,goals:0,total:0,pct:null};
+  const sh=state.shots.filter(s=>!s.opponentGoal&&s.keeperId===state.activeKeeperId);
+  const saves=sh.filter(s=>s.outcome==='saved').length,goals=sh.filter(s=>s.outcome==='goal').length,total=sh.length;
+  return{saves,goals,total,pct:total>0?parseFloat((saves/total*100).toFixed(1)):null};
+}
 function updateStats(){
   const shots=getDisplayShots(), total=shots.length;
   const saves=getDisplaySaves(shots), goals=getDisplayGoals(shots), oppGoalsStats=getDisplayOppGoals(shots);
-  const pct=total>0?(saves/total*100).toFixed(1):'—';
-  if($('statSaves2'))$('statSaves2').textContent=saves;
-  if($('statGoals2'))$('statGoals2').textContent=goals;
-  if($('statPct2'))$('statPct2').textContent=total>0?pct+'%':'—%';
+  const ak=getActiveKeeperShotStats();
+  if($('statSaves2'))$('statSaves2').textContent=ak.saves;
+  if($('statGoals2'))$('statGoals2').textContent=ak.goals;
+  if($('statPct2'))$('statPct2').textContent=ak.pct!==null?ak.pct+'%':'—%';
   const effShots=shots.filter(s=>!s.opponentGoal);
   updateEffBar(saves,effShots.length); updateFieldHeatmap(shots); updateHistory(shots); updateChart(shots); updateSeasonAverage();
   renderSpecialStats(shots); renderBodypartStats(shots); updateMomentumStrip();
@@ -997,17 +1068,20 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('legendMask').cla
 // BODYPART STATS
 function renderBodypartStats(shots){
   const el=$('bodypartStats');if(!el)return;
-  const rel=shots.filter(s=>!s.opponentGoal&&s.bodyPart);
+  const rel=shots.filter(s=>!s.opponentGoal&&s.outcome==='saved'&&s.bodyPart);
   if(rel.length<3){el.style.display='none';return}
   const parts=['hand','fuss','koerper'],labels={hand:'🤚 Hand',fuss:'🦵 Fuß',koerper:'💪 Körper'};
-  let html='<div class="chart-header" style="margin-top:10px">Körperteil-Statistik</div>';
-  html+='<table class="bp-table"><tr><th>Körperteil</th><th>Geh.</th><th>Tore</th><th>Quote</th></tr>';
+  const detailLabels={tief:'tief',hoch:'hoch',halbhoch:'halb hoch'};
+  let html='<div class="chart-header" style="margin-top:10px">Körperteil (gehaltene Bälle)</div>';
+  html+='<table class="bp-table"><tr><th>Körperteil</th><th>Anz.</th><th>Detail</th></tr>';
   let hasRow=false;
   parts.forEach(p=>{
     const ps=rel.filter(s=>s.bodyPart===p);if(!ps.length)return;hasRow=true;
-    const sv=ps.filter(s=>s.outcome==='saved').length,gl=ps.filter(s=>s.outcome==='goal').length,pct=Math.round(sv/ps.length*100);
-    const cls=classifySP(pct,ps.length);
-    html+=`<tr><td>${labels[p]}</td><td style="color:var(--q-good);font-weight:700">${sv}</td><td style="color:var(--accent);font-weight:700">${gl}</td><td style="color:${cls.color};font-weight:800">${pct}%</td></tr>`;
+    const dcounts={};ps.forEach(s=>{const d=s.bodyDetail||null;if(d)dcounts[d]=(dcounts[d]||0)+1});
+    const ohneD=ps.filter(s=>!s.bodyDetail).length;
+    let detStr=Object.entries(dcounts).map(([k,v])=>`<span style="color:var(--text)">${detailLabels[k]||k}: ${v}</span>`).join(' · ');
+    if(ohneD>0)detStr+=(detStr?' · ':'')+`<span style="color:var(--text-dim)">ohne: ${ohneD}</span>`;
+    html+=`<tr><td>${labels[p]}</td><td style="color:var(--q-good);font-weight:800">${ps.length}</td><td style="font-size:12px">${detStr||'—'}</td></tr>`;
   });
   html+='</table>';
   if(!hasRow){el.style.display='none';return}
