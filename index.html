@@ -253,6 +253,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <!-- SCREEN 2: STATS -->
 <div class="screen" id="screenStats"><div class="scroll-area">
 <div class="title-row"><span class="title-main">Statistiken</span></div>
+<div id="combinedInfo" style="display:none;width:100%;font-size:11px;color:var(--text-dim);background:var(--card);border-radius:8px;padding:6px 10px;margin:2px 0"></div>
 <div class="keeper-filter" id="keeperFilter"></div>
 <div class="eff-bar" onclick="openLegend()"><span class="eff-label" id="statsEffLabel">Effizienz Torwart</span><span class="eff-value"><span class="eff-pct" id="effPct">—%</span><span class="eff-frac" id="effFrac">0/0</span><span class="eff-class" id="effClass">—</span></span></div>
 <div class="eff-bar" id="seasonAvgBar" style="display:none" onclick="openLegend()"><span class="eff-label">📅 Saison-Schnitt</span><span class="eff-value"><span class="eff-pct" id="seasonPct">—%</span><span class="eff-frac" id="seasonFrac">0/0</span><span class="eff-class" id="seasonClass">—</span></span></div>
@@ -318,7 +319,6 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div class="screen active" id="screenHistory"><div class="scroll-area">
 <div class="s-filter"><button class="s-filter-btn active" data-filter="club" data-val="all">Alle</button><button class="s-filter-btn esv" data-filter="club" data-val="ESV">ESV</button><button class="s-filter-btn hga" data-filter="club" data-val="HGA">HGA</button>
 <span style="color:var(--border);padding:0 2px">|</span>
-<button class="s-filter-btn active" data-filter="type" data-val="all">Alle</button>
 <button class="s-filter-btn" data-filter="type" data-val="heim">🏠 Heim</button><button class="s-filter-btn" data-filter="type" data-val="auswaerts">✈️ Auswärts</button>
 <button class="s-filter-btn" data-filter="type" data-val="freundschaft">🤝 Freundsch.</button><button class="s-filter-btn" data-filter="type" data-val="training">🏃 Training</button>
 </div>
@@ -403,6 +403,13 @@ function qualityColor(saves,total){if(total<5)return'var(--q-empty)';return clas
 
 const selDisplay=$('selectionDisplay'), btnSave=$('btnSave'), btnGoal=$('btnGoal'), btnSubmit=$('btnSubmit'), btnReset=$('btnReset');
 const toast=$('toast'), btn1v1=$('btn1v1'), bodypartRow=$('bodypartRow'), bodypartDetail=$('bodypartDetail');
+let toastTimer=null;
+function showToast(msg,type){
+  toast.textContent=msg;
+  toast.className='toast show'+(type?' '+type:'');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toast.classList.remove('show'),2200);
+}
 
 const state={shots:[],step:1,shooterZone:null,targetZone:null,outcome:null,is1v1:false,bodyPart:null,bodyDetail:null};
 
@@ -442,6 +449,7 @@ btnStartSession.addEventListener('click',()=>{
   currentSession={id:Date.now().toString(),date:setupDateEl.value,club:setupClub,type:setupType,opponent:setupType==='training'?'':(setupOpponentEl.value.trim()||'Unbekannt'),halfLength:half,keepers:keepers.map(k=>({...k})),keeperChanges:[{keeperId:keepers[0].id,minute:0}],shots:[],closed:false};
   state.shots=[]; fullReset(); gameClock={running:false,minute:0,intervalId:null}; activeKeeperFilter='all';
   state.activeKeeperId=keepers[0].id; analysisMode=false; analysisShots=[];
+  $('combinedInfo').style.display='none';
   updateActiveKeeperDisplay(); updateScore(); updateStats();
   $('btnOppGoal').textContent='Tor '+setupClub;
   showScreen('screenInput');
@@ -454,6 +462,7 @@ btnStartSession.addEventListener('click',()=>{
 $('headerNewGame').addEventListener('click',()=>{
   if(currentSession&&!currentSession.closed&&state.shots.length>0)saveCurrentSession();
   currentSession=null; analysisMode=false; analysisShots=[]; state.shots=[]; pauseClock();
+  $('combinedInfo').style.display='none';
   renderSessionList(); showScreen('screenSetup');
 });
 
@@ -516,10 +525,9 @@ $('btnOppGoal').addEventListener('click',()=>{
   // Log as own team goal (opponentGoal=true = our team scored)
   state.shots.push({id:'og_'+Date.now(),shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,timestamp:new Date().toISOString()});
   updateStats(); updateScore(); saveCurrentSession();
-  showToast('⚽ Tor '+(currentSession?currentSession.club:'ESV')+'!','success');
   fullReset();
-  // Ensure clock is running
   if(!gameClock.running&&!gameClock.intervalId)startClock();
+  showToast('⚽ Tor '+(currentSession?currentSession.club:'ESV')+'!','success');
 });
 
 // 1v1
@@ -552,10 +560,9 @@ document.querySelectorAll('.bodypart-btn').forEach(btn=>{
   btn.addEventListener('click',function(){
     document.querySelectorAll('.bodypart-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');state.bodyPart=this.dataset.part;state.bodyDetail=null;
     document.querySelectorAll('.bodypart-detail-btn').forEach(b=>b.classList.remove('selected'));
-    if(state.bodyPart==='hand'){bodypartDetail.style.display='flex';$('btnHandTief').style.display='';$('btnFussHoch').style.display='none';$('btnFussHalbhoch').style.display='none'}
-    else if(state.bodyPart==='fuss'){bodypartDetail.style.display='flex';$('btnHandTief').style.display='none';$('btnFussHoch').style.display='';$('btnFussHalbhoch').style.display=''}
+    if(state.bodyPart==='hand'){bodypartDetail.style.display='flex';$('btnHandTief').style.display='';$('btnFussHoch').style.display='none';$('btnFussHalbhoch').style.display='none';btnSubmit.disabled=true;selDisplay.textContent='🤚 Detail wählen'}
+    else if(state.bodyPart==='fuss'){bodypartDetail.style.display='flex';$('btnHandTief').style.display='none';$('btnFussHoch').style.display='';$('btnFussHalbhoch').style.display='';btnSubmit.disabled=true;selDisplay.textContent='🤚 Detail wählen'}
     else{bodypartDetail.style.display='none';btnSubmit.disabled=false;selDisplay.textContent='✅ Körper — eintragen'}
-    if(state.bodyPart!=='koerper')selDisplay.textContent='🤚 Detail wählen';if(state.bodyPart!=='koerper')btnSubmit.disabled=false;
   });
 });
 document.querySelectorAll('.bodypart-detail-btn').forEach(btn=>{
@@ -563,6 +570,7 @@ document.querySelectorAll('.bodypart-detail-btn').forEach(btn=>{
     document.querySelectorAll('.bodypart-detail-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');state.bodyDetail=this.dataset.detail;
     const m={'tief':'Hand tief','hoch':'Fuß hoch','halbhoch':'Fuß halb hoch'};
     selDisplay.textContent='✅ '+(m[state.bodyDetail]||state.bodyDetail)+' — eintragen';
+    btnSubmit.disabled=false;
   });
 });
 
@@ -571,10 +579,10 @@ btnSubmit.addEventListener('click',()=>{
   if(currentSession&&currentSession.closed){showToast('🔒 Spiel abgeschlossen','error');return}
   const shot={id:Date.now()+'_'+Math.random().toString(36).slice(2,6),shooterZone:state.shooterZone,targetZone:state.targetZone,outcome:state.outcome,opponentGoal:false,is1v1:state.is1v1,bodyPart:state.bodyPart,bodyDetail:state.bodyDetail,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,timestamp:new Date().toISOString()};
   state.shots.push(shot); updateStats(); updateScore();
-  showToast(shot.outcome==='saved'?'🧤 Gehalten! ('+Math.floor(gameClock.minute)+'min)':'⚽ Gegner Tor ('+Math.floor(gameClock.minute)+'min)','success');
   saveCurrentSession();
   fullReset();
   if(!gameClock.running&&!gameClock.intervalId)startClock();
+  showToast(shot.outcome==='saved'?'🧤 Gehalten! ('+Math.floor(gameClock.minute)+'min)':'⚽ Gegner Tor ('+Math.floor(gameClock.minute)+'min)','success');
 });
 btnReset.addEventListener('click',()=>{fullReset()});
 $('btnUndo').addEventListener('click',()=>{
@@ -719,7 +727,7 @@ function getFilteredSessions(){
 document.querySelectorAll('.s-filter-btn').forEach(btn=>{
   btn.addEventListener('click',function(){
     const col=this.dataset.filter;
-    // Group: club or type
+    if(col==='type'&&this.classList.contains('active')){this.classList.remove('active');filterType='all';renderSessionList();return}
     document.querySelectorAll(`.s-filter-btn[data-filter="${col}"]`).forEach(b=>b.classList.remove('active'));
     this.classList.add('active');
     if(col==='club')filterClub=this.dataset.val;
@@ -746,8 +754,13 @@ function renderSessionList(){
 }
 function onSessionCheck(id,checked){if(checked)selectedSessionIds.add(id);else selectedSessionIds.delete(id)}
 function viewSession(id){
+  if(currentSession&&!currentSession.closed&&state.shots.length>0&&currentSession.id!==id){
+    if(!confirm('Du hast noch ein laufendes Spiel offen. Trotzdem anderes Spiel ansehen? (aktuelles Spiel wird vorher gespeichert)'))return;
+    saveCurrentSession();
+  }
   const all=loadSessions(), session=all.find(s=>s.id===id);
   if(!session)return;
+  $('combinedInfo').style.display='none';
   state.shots=[...session.shots];
   currentSession={...session}; state.activeKeeperId=session.keeperChanges&&session.keeperChanges.length>0?session.keeperChanges[0].keeperId:(session.keepers?session.keepers[0].id:'k1');
   analysisMode=false; analysisShots=[]; activeKeeperFilter='all';
@@ -758,17 +771,35 @@ function viewSession(id){
   showScreen('screenStats');
   $('statusSession').textContent=`📋 ${session.club} ${TYPE_EMOJI[session.type]}${session.opponent?' · '+session.opponent:''}${session.closed?' 🔒':''}`;
 }
-$('btnCloseSessions').addEventListener('click',()=>{if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}let all=loadSessions();all=all.map(s=>{if(selectedSessionIds.has(s.id)){s.closed=true;s.shots=[...s.shots]}return s});saveSessions(all);selectedSessionIds.clear();renderSessionList();showToast('🔒 Abgeschlossen','success')});
-$('btnDeleteSessions').addEventListener('click',()=>{if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}let all=loadSessions();all=all.filter(s=>!selectedSessionIds.has(s.id)||(currentSession&&s.id===currentSession.id&&!s.closed&&state.shots.length>0));saveSessions(all);selectedSessionIds.clear();renderSessionList();showToast('🗑 Gelöscht','error')});
+$('btnCloseSessions').addEventListener('click',()=>{
+  if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}
+  let all=loadSessions();
+  all=all.map(s=>{if(selectedSessionIds.has(s.id))s.closed=true;return s});
+  saveSessions(all);
+  if(currentSession&&selectedSessionIds.has(currentSession.id))currentSession.closed=true;
+  selectedSessionIds.clear();renderSessionList();showToast('🔒 Abgeschlossen','success');
+});
+$('btnDeleteSessions').addEventListener('click',()=>{
+  if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}
+  const blockedActive=currentSession&&!currentSession.closed&&state.shots.length>0&&selectedSessionIds.has(currentSession.id);
+  let all=loadSessions();
+  all=all.filter(s=>!selectedSessionIds.has(s.id)||(currentSession&&s.id===currentSession.id&&!s.closed&&state.shots.length>0));
+  saveSessions(all);selectedSessionIds.clear();renderSessionList();
+  showToast(blockedActive?'🗑 Gelöscht (aktives Spiel übersprungen)':'🗑 Gelöscht','error');
+});
 $('btnCombineSessions').addEventListener('click',()=>{
   if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}
   const all=loadSessions(), selected=all.filter(s=>selectedSessionIds.has(s.id));
   const combined=selected.flatMap(s=>s.shots); if(combined.length===0){showToast('Keine Shots','error');return}
   analysisMode=true; analysisShots=combined; state.shots=combined;
-  updateStats(); showToast('📊 '+selected.length+' Spiele ('+combined.length+' Shots)','success');
+  updateStats();
+  const info=selected.map(s=>{const d=new Date(s.date+'T12:00:00');return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' '+(s.opponent?'vs. '+s.opponent:TYPE_LABEL[s.type])}).join(' · ');
+  $('combinedInfo').textContent='📊 Kombiniert: '+info;
+  $('combinedInfo').style.display='block';
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.tab-btn[data-screen="screenStats"]').classList.add('active');
   showScreen('screenStats'); $('statusSession').textContent='📊 Kombiniert: '+selected.length+' Spiele';
+  showToast('📊 '+selected.length+' Spiele ('+combined.length+' Shots)','success');
 });
 
 // TAB
