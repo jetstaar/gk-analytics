@@ -653,9 +653,9 @@ function updateScore(){
 function currentScoreSnapshot(){return{own:state.shots.filter(s=>s.opponentGoal).length,opp:state.shots.filter(s=>s.outcome==='goal'&&!s.opponentGoal).length}}
 $('btnOppGoal').addEventListener('click',()=>{
   if(currentSession&&currentSession.closed){showToast('🔒 Spiel abgeschlossen','error');return}
-  const sc0=currentScoreSnapshot();
-  // Log as own team goal (opponentGoal=true = our team scored)
-  state.shots.push({id:'og_'+Date.now(),shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,scoreOwn:sc0.own,scoreOpp:sc0.opp,timestamp:new Date().toISOString()});
+  const ownShot={id:'og_'+Date.now(),shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,scoreOwn:0,scoreOpp:0,timestamp:new Date().toISOString()};
+  state.shots.push(ownShot);
+  const sc1own=currentScoreSnapshot();ownShot.scoreOwn=sc1own.own;ownShot.scoreOpp=sc1own.opp;
   updateStats(); updateScore(); saveCurrentSession();
   fullReset();
   if(!gameClock.running&&!gameClock.intervalId)startClock();
@@ -709,9 +709,10 @@ document.querySelectorAll('.bodypart-detail-btn').forEach(btn=>{
 btnSubmit.addEventListener('click',()=>{
   if(!state.shooterZone||!state.targetZone||!state.outcome)return;
   if(currentSession&&currentSession.closed){showToast('🔒 Spiel abgeschlossen','error');return}
-  const sc0=currentScoreSnapshot();
-  const shot={id:Date.now()+'_'+Math.random().toString(36).slice(2,6),shooterZone:state.shooterZone,targetZone:state.targetZone,outcome:state.outcome,opponentGoal:false,is1v1:state.is1v1,bodyPart:state.bodyPart,bodyDetail:state.bodyDetail,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,scoreOwn:sc0.own,scoreOpp:sc0.opp,timestamp:new Date().toISOString()};
-  state.shots.push(shot); updateStats(); updateScore(); checkZoneAlert();
+  const shot={id:Date.now()+'_'+Math.random().toString(36).slice(2,6),shooterZone:state.shooterZone,targetZone:state.targetZone,outcome:state.outcome,opponentGoal:false,is1v1:state.is1v1,bodyPart:state.bodyPart,bodyDetail:state.bodyDetail,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,scoreOwn:0,scoreOpp:0,timestamp:new Date().toISOString()};
+  state.shots.push(shot);
+  const sc1=currentScoreSnapshot();shot.scoreOwn=sc1.own;shot.scoreOpp=sc1.opp;
+  updateStats(); updateScore(); checkZoneAlert();
   saveCurrentSession();
   fullReset();
   if(!gameClock.running&&!gameClock.intervalId)startClock();
@@ -931,7 +932,7 @@ document.querySelectorAll('.s-filter-btn').forEach(btn=>{
 
 function renderSessionList(){
   const filtered=getFilteredSessions(), el=$('sessionList');
-  if(filtered.length===0){el.innerHTML='<div class="history-empty">Keine Spiele gefunden</div>';$('sessionActions').style.display='none';return}
+  if(filtered.length===0){const noAll=loadSessions().length===0;el.innerHTML='<div class="history-empty">Keine Spiele gefunden'+(noAll?'<br><button class="btn-secondary" style="margin-top:12px;font-size:13px" onclick="loadDemoData()">Demo-Spiele laden</button>':'')+'</div>';$('sessionActions').style.display='none';return}
   $('sessionActions').style.display='flex';
   el.innerHTML=filtered.map(s=>{
     const saves=s.shots.filter(sh=>sh.outcome==='saved'&&!sh.opponentGoal).length, total=s.shots.filter(sh=>!sh.opponentGoal).length;
@@ -1100,7 +1101,7 @@ function renderTrendChart(){
   const el=$('trendChart');if(!el)return;
   if(!analysisMode||analysisSessions.length<2){el.style.display='none';if(chartTrendInstance){chartTrendInstance.destroy();chartTrendInstance=null}return}
   const nm=activeKeeperFilter.startsWith('name:')?activeKeeperFilter.slice(5).toLowerCase():null;
-  const pts=analysisSessions.map(s=>{
+  const pts=[...analysisSessions].sort((a,b)=>a.date>b.date?1:-1).map(s=>{
     const sh=nm?s.shots.filter(x=>!x.opponentGoal&&keeperName((s.keepers||[]).find(k=>k.id===x.keeperId)||{}).toLowerCase()===nm):s.shots.filter(x=>!x.opponentGoal);
     const sv=sh.filter(x=>x.outcome==='saved').length,t=sh.length;
     const d=new Date(s.date+'T12:00:00');
@@ -1228,6 +1229,60 @@ function exportSessionsCSV(){
   const fn='gk-export-'+dates[0]+(dates.length>1?'-bis-'+dates[dates.length-1]:'')+'.csv';
   triggerDownload(buildCSVRows(shots),fn);
   showToast('📥 '+selected.length+' Spiele exportiert','success');
+}
+
+function loadDemoData(){
+  const DEMO_IDS=['demo_game_1','demo_game_2'];
+  const existing=loadSessions();
+  if(DEMO_IDS.every(id=>existing.find(s=>s.id===id))){showToast('Demo bereits vorhanden','info');return}
+  // Game 1: ESV Heim vs TSV Weiden, 28.06.2026, Torhüterwechsel HZ (Müller → Berger)
+  const g1shots=[];
+  let o1=0,g1=0;
+  function push1(n,zone,tz,res,v1,bp,bd,min,kid){if(res==='goal')g1++;g1shots.push({id:'d1_'+n,shooterZone:zone,targetZone:tz,outcome:res,opponentGoal:false,is1v1:v1||false,bodyPart:bp||null,bodyDetail:bd||null,gameMinute:min,keeperId:kid,scoreOwn:o1,scoreOpp:g1,timestamp:'2026-06-28T10:00:00.000Z'})}
+  function own1(n,min,kid){o1++;g1shots.push({id:'d1_og'+n,shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:min,keeperId:kid,scoreOwn:o1,scoreOpp:g1,timestamp:'2026-06-28T10:00:00.000Z'})}
+  // HZ1 — Dominik Müller (k1)
+  push1(1,'LM',7,'saved',false,'fuss','tief',3,'k1');own1(1,4,'k1');
+  push1(2,'MI',5,'goal',false,null,null,6,'k1');own1(2,8,'k1');
+  push1(3,'RA',3,'saved',false,'hand','hoch',10,'k1');
+  push1(4,'7m',5,'saved',false,'hand','halbhoch',12,'k1');
+  push1(5,'LI',8,'goal',false,null,null,15,'k1');own1(3,16,'k1');
+  push1(6,'MA',2,'saved',false,'koerper',null,18,'k1');
+  push1(7,'RI',6,'goal',true,null,null,20,'k1');own1(4,22,'k1');
+  push1(8,'LA',7,'saved',false,'fuss','tief',24,'k1');own1(5,25,'k1');
+  push1(9,'MI',5,'saved',false,'koerper',null,27,'k1');
+  push1(10,'7m',8,'goal',false,null,null,29,'k1');own1(6,30,'k1');
+  // HZ2 — Jonas Berger (k2)
+  push1(11,'LM',4,'saved',false,'hand','halbhoch',32,'k2');
+  push1(12,'RM',3,'saved',false,'hand','hoch',34,'k2');own1(7,35,'k2');
+  push1(13,'MI',5,'goal',false,null,null,37,'k2');own1(8,39,'k2');
+  push1(14,'LI',8,'goal',true,null,null,41,'k2');
+  push1(15,'7m',5,'saved',false,'hand','halbhoch',43,'k2');own1(9,45,'k2');
+  push1(16,'RA',3,'saved',false,'koerper',null,47,'k2');
+  push1(17,'MI',6,'goal',false,null,null,50,'k2');own1(10,51,'k2');
+  push1(18,'MA',2,'saved',false,'hand','hoch',53,'k2');
+  push1(19,'LM',7,'saved',false,'fuss','tief',56,'k2');own1(11,58,'k2');
+  const session1={id:'demo_game_1',date:'2026-06-28',club:'ESV',type:'heim',opponent:'TSV Weiden',halfLength:30,keepers:[{id:'k1',number:12,firstName:'Dominik',lastName:'Müller'},{id:'k2',number:1,firstName:'Jonas',lastName:'Berger'}],keeperChanges:[{keeperId:'k2',minute:30}],shots:g1shots,clockMinute:60,clockRunning:false,closed:true};
+  // Game 2: ESV Auswärts bei SG Regensburg, 05.07.2026, nur Dominik Müller
+  const g2shots=[];
+  let o2=0,g2=0;
+  function push2(n,zone,tz,res,v1,bp,bd,min){if(res==='goal')g2++;g2shots.push({id:'d2_'+n,shooterZone:zone,targetZone:tz,outcome:res,opponentGoal:false,is1v1:v1||false,bodyPart:bp||null,bodyDetail:bd||null,gameMinute:min,keeperId:'k1',scoreOwn:o2,scoreOpp:g2,timestamp:'2026-07-05T14:00:00.000Z'})}
+  function own2(n,min){o2++;g2shots.push({id:'d2_og'+n,shooterZone:'-',targetZone:0,outcome:'goal',opponentGoal:true,is1v1:false,bodyPart:null,bodyDetail:null,gameMinute:min,keeperId:'k1',scoreOwn:o2,scoreOpp:g2,timestamp:'2026-07-05T14:00:00.000Z'})}
+  push2(1,'MI',5,'goal',false,null,null,2);own2(1,4);
+  push2(2,'LM',7,'saved',false,'fuss','tief',6);push2(3,'RA',3,'saved',false,'hand','hoch',9);own2(2,10);
+  push2(4,'7m',5,'goal',false,null,null,12);push2(5,'LI',8,'saved',false,'koerper',null,15);own2(3,16);
+  push2(6,'MI',5,'saved',false,'hand','halbhoch',18);push2(7,'MA',2,'goal',true,null,null,21);own2(4,23);
+  push2(8,'LA',7,'saved',false,'fuss','tief',25);push2(9,'LM',4,'goal',false,null,null,27);
+  push2(10,'7m',8,'saved',false,'hand','halbhoch',29);
+  own2(5,32);push2(11,'RI',6,'goal',false,null,null,34);push2(12,'MI',5,'saved',false,'koerper',null,37);own2(6,39);
+  push2(13,'LM',7,'saved',false,'fuss','tief',41);push2(14,'LM',8,'goal',false,null,null,43);own2(7,44);
+  push2(15,'7m',5,'saved',false,'hand','halbhoch',46);push2(16,'RA',3,'goal',true,null,null,49);own2(8,51);
+  push2(17,'MA',2,'saved',false,'hand','hoch',53);push2(18,'MI',5,'saved',false,'koerper',null,56);own2(9,58);
+  const session2={id:'demo_game_2',date:'2026-07-05',club:'ESV',type:'auswaerts',opponent:'SG Regensburg',halfLength:30,keepers:[{id:'k1',number:12,firstName:'Dominik',lastName:'Müller'}],keeperChanges:[],shots:g2shots,clockMinute:60,clockRunning:false,closed:true};
+  const updated=existing.filter(s=>!DEMO_IDS.includes(s.id));
+  updated.unshift(session2);updated.unshift(session1);
+  saveSessions(updated);
+  showToast('2 Demo-Spiele geladen','success');
+  renderSessionList();
 }
 
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{r.update()}).catch(()=>{});
