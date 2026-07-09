@@ -160,6 +160,36 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 .mrow .rng{font-weight:800;white-space:nowrap}.mrow .lbl{color:var(--text-dim)}
 .mhint{font-size:11px;color:var(--text-dim);margin-top:16px;padding:8px 12px;background:var(--bg-deep);border-radius:10px;line-height:1.4}
 .mclose{background:var(--gold);color:#1a1200;border:none;padding:12px;border-radius:var(--radius);font-size:14px;font-weight:800;cursor:pointer;margin-top:16px;width:100%}
+/* Momentum strip */
+.momentum-strip{display:flex;gap:8px;justify-content:center;align-items:center;width:100%;padding:7px 0;background:var(--card);border-radius:10px;margin:2px 0;border:1px solid var(--border)}
+.momentum-dot{width:15px;height:15px;border-radius:50%;flex-shrink:0;transition:background .2s}
+.momentum-dot.saved{background:var(--q-good)}.momentum-dot.goal{background:var(--accent)}.momentum-dot.empty{background:rgba(255,255,255,0.1)}
+.momentum-label{font-size:10px;color:var(--text-dim);font-weight:600;margin-right:4px}
+/* HZ button */
+.btn-hz{padding:7px 16px;border-radius:20px;border:2px solid var(--border);background:transparent;color:var(--text-dim);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;touch-action:manipulation}
+.btn-hz:active{opacity:.75}
+/* HZ modal */
+.hz-row{display:flex;gap:10px;margin:10px 0}
+.hz-col{flex:1;background:var(--bg-deep);border-radius:10px;padding:10px;text-align:center}
+.hz-label{font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;margin-bottom:4px}
+.hz-val{font-size:15px;font-weight:800;color:var(--gold)}.hz-val.dim{color:var(--text-dim)}
+.hz-weakness{background:rgba(232,73,58,0.15);border-radius:8px;padding:8px 12px;font-size:13px;margin:8px 0;border-left:3px solid var(--accent);color:var(--text)}
+.hz-goals-title{font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;margin:10px 0 4px}
+.hz-goal-item{font-size:13px;color:var(--text);padding:5px 0;border-bottom:1px solid var(--border)}
+.hz-goal-item:last-child{border-bottom:none}
+/* Bodypart stats */
+.bp-table{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0}
+.bp-table th{font-size:10px;color:var(--text-dim);font-weight:700;text-transform:uppercase;padding:4px 8px;text-align:left;border-bottom:1px solid var(--border)}
+.bp-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.05)}
+.bp-table tr:last-child td{border-bottom:none}
+/* Special stats box (1v1, 7m) */
+.special-stats-box{width:100%;background:var(--card);border-radius:10px;border:1px solid var(--border);overflow:hidden;margin:4px 0}
+.special-stat-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px}
+.special-stat-row:last-child{border-bottom:none}
+.special-stat-row .ss-mid{color:var(--text-dim);font-size:12px}
+.special-stat-row .ss-pct{font-weight:800;min-width:38px;text-align:right}
+/* s-actions 4th button */
+.btn-export-csv{flex:1;padding:8px;border-radius:10px;border:2px solid #7a8fa8;color:#7a8fa8;background:transparent;font-size:12px;font-weight:700;cursor:pointer}
 </style></head><body>
 
 <header><h1>GK-Analytics <small>B-Jugend</small></h1><button class="header-btn" id="headerNewGame">+ Neu</button></header>
@@ -190,7 +220,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
   <button class="btn-clock" id="btnClock">⏸️</button>
   <button class="btn-oppgoal" id="btnOppGoal">Tor ESV</button>
 </div>
-<div class="onevone-row"><button class="btn-1v1" id="btn1v1">⚡ 1 gegen 1</button></div>
+<div class="onevone-row" style="justify-content:space-between;padding:2px 8px"><button class="btn-1v1" id="btn1v1">⚡ 1 gegen 1</button><button class="btn-hz" onclick="openHZModal()">📊 HZ</button></div>
 <div class="field-container" id="fieldContainer">
 <svg viewBox="0 0 400 460" xmlns="http://www.w3.org/2000/svg">
 <defs><pattern id="netPattern" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M0,0 L10,10 M10,0 L0,10" stroke="rgba(255,255,255,0.10)" stroke-width="0.6"/></pattern><pattern id="postStripes" width="16" height="16" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="16" height="8" fill="var(--accent)"/><rect y="8" width="16" height="8" fill="#fff"/></pattern></defs>
@@ -248,11 +278,15 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div style="flex:1;background:var(--card);border-radius:10px;padding:10px 6px;text-align:center;border:1px solid var(--border)"><div style="font-size:22px;font-weight:900;color:var(--q-good)" id="statSaves2">0</div><div style="font-size:10px;color:var(--text-dim);font-weight:600;margin-top:2px">Gehalten</div></div>
 <div style="flex:1;background:var(--card);border-radius:10px;padding:10px 6px;text-align:center;border:1px solid var(--border)"><div style="font-size:22px;font-weight:900;color:var(--accent)" id="statGoals2">0</div><div style="font-size:10px;color:var(--text-dim);font-weight:600;margin-top:2px">Tore</div></div>
 <div style="flex:1;background:var(--card);border-radius:10px;padding:10px 6px;text-align:center;border:1px solid var(--border)"><div style="font-size:22px;font-weight:900;color:var(--gold)" id="statPct2">—%</div><div style="font-size:10px;color:var(--text-dim);font-weight:600;margin-top:2px">Save%</div></div>
+</div>
+<div class="momentum-strip" id="momentumStrip">
+<span class="momentum-label">Trend</span>
+<span class="momentum-dot empty"></span><span class="momentum-dot empty"></span><span class="momentum-dot empty"></span><span class="momentum-dot empty"></span><span class="momentum-dot empty"></span>
 </div></div>
 
 <!-- SCREEN 2: STATS -->
 <div class="screen" id="screenStats"><div class="scroll-area">
-<div class="title-row"><span class="title-main">Statistiken</span></div>
+<div class="title-row"><span class="title-main">Statistiken</span><button class="header-btn" onclick="exportCSV()" style="font-size:12px">📥 CSV</button></div>
 <div id="combinedInfo" style="display:none;width:100%;font-size:11px;color:var(--text-dim);background:var(--card);border-radius:8px;padding:6px 10px;margin:2px 0"></div>
 <div class="keeper-filter" id="keeperFilter"></div>
 <div class="eff-bar" onclick="openLegend()"><span class="eff-label" id="statsEffLabel">Effizienz Torwart</span><span class="eff-value"><span class="eff-pct" id="effPct">—%</span><span class="eff-frac" id="effFrac">0/0</span><span class="eff-frac" id="effPlaytime" style="display:none"></span><span class="eff-class" id="effClass">—</span></span></div>
@@ -311,6 +345,8 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 </g></svg></div>
 <div class="chart-header" style="margin-top:10px">Torzonen-Verteilung</div>
 <div class="chart-wrapper"><canvas id="chartZones"></canvas></div>
+<div id="specialStats" style="width:100%;display:none"></div>
+<div id="bodypartStats" style="width:100%;display:none"></div>
 <div class="chart-header" style="margin-top:12px">Letzte Shots</div>
 <div class="history-list" id="historyList"><div class="history-empty">Noch keine Shots erfasst</div></div>
 </div></div>
@@ -323,7 +359,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <button class="s-filter-btn" data-filter="type" data-val="freundschaft">🤝 Freundsch.</button><button class="s-filter-btn" data-filter="type" data-val="training">🏃 Training</button>
 </div>
 <div class="s-actions" id="sessionActions" style="display:none">
-<button class="btn-close" id="btnCloseSessions">🔒 Abschließen</button><button class="btn-del" id="btnDeleteSessions">🗑 Löschen</button><button class="btn-combine" id="btnCombineSessions">📊 Kombinieren</button>
+<button class="btn-close" id="btnCloseSessions">🔒 Abschl.</button><button class="btn-del" id="btnDeleteSessions">🗑 Löschen</button><button class="btn-combine" id="btnCombineSessions">📊 Kombin.</button><button class="btn-export-csv" onclick="exportSessionsCSV()">📥 CSV</button>
 </div>
 <div id="sessionList"><div class="history-empty">Keine Spiele</div></div>
 </div></div>
@@ -343,6 +379,10 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div id="keeperSwitchList"></div>
 <button class="k-switch-close" onclick="closeKeeperSwitch()">Abbrechen</button>
 </div></div>
+
+<div class="mask" id="hzMask" onclick="if(event.target===this)closeHZModal()">
+<div class="mbox" id="hzModalBox" style="max-height:80vh;overflow-y:auto"></div>
+</div>
 
 <div class="mask" id="legendMask" onclick="if(event.target===this)closeLegend()">
 <div class="mbox"><h3>Haltequote-Einstufung (B-Jugend)</h3>
@@ -370,7 +410,7 @@ async function syncToSupabase(session){
 }
 function updateSyncStatus(ok){const el=$('syncStatus');if(el)el.innerHTML=ok?'<span class="dot dot-green"></span>Synced':'<span class="dot dot-gray"></span>Offline'}
 
-let currentSession=null, selectedSessionIds=new Set(), filterClub='all', filterType='all', analysisMode=false, analysisShots=[], analysisKeepers=[], analysisSessions=[], activeKeeperFilter='all';
+let currentSession=null, selectedSessionIds=new Set(), filterClub='all', filterType='all', analysisMode=false, analysisShots=[], analysisKeepers=[], analysisSessions=[], activeKeeperFilter='all', alertZones=new Set();
 function keeperName(k){return k?((k.firstName||'')+' '+(k.lastName||'')).trim():''}
 let gameClock={running:false,minute:0,intervalId:null};
 
@@ -562,8 +602,8 @@ document.querySelectorAll('#screenInput .zone-cell').forEach(el=>{
     if(state.step>=3&&isShooter){resetToStep(1);state.shooterZone=zone;highlightShooter(zone);state.step=2;const l=SHOOTER_LABEL[zone]||zone;selDisplay.textContent=`📍 ${l} — Torzone tippen`}
   });
 });
-function highlightShooter(zone){document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>{el.style.fill=el.dataset.zone===zone?'rgba(244,185,66,0.5)':'var(--q-empty)'})}
-function clearSelection(){document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>el.style.fill='var(--q-empty)');document.querySelectorAll('#screenInput .target-zone').forEach(el=>el.style.fill='var(--q-empty)')}
+function highlightShooter(zone){document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>{el.style.fill=el.dataset.zone===zone?'rgba(244,185,66,0.5)':(alertZones.has(el.dataset.zone)?'rgba(232,73,58,0.38)':'var(--q-empty)')})}
+function clearSelection(){document.querySelectorAll('#screenInput .shooter-zone').forEach(el=>el.style.fill=alertZones.has(el.dataset.zone)?'rgba(232,73,58,0.38)':'var(--q-empty)');document.querySelectorAll('#screenInput .target-zone').forEach(el=>el.style.fill='var(--q-empty)')}
 function enableOutcome(en){btnSave.disabled=!en;btnGoal.disabled=!en}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 
@@ -598,7 +638,7 @@ btnSubmit.addEventListener('click',()=>{
   if(currentSession&&currentSession.closed){showToast('🔒 Spiel abgeschlossen','error');return}
   const sc0=currentScoreSnapshot();
   const shot={id:Date.now()+'_'+Math.random().toString(36).slice(2,6),shooterZone:state.shooterZone,targetZone:state.targetZone,outcome:state.outcome,opponentGoal:false,is1v1:state.is1v1,bodyPart:state.bodyPart,bodyDetail:state.bodyDetail,gameMinute:gameClock.minute,keeperId:state.activeKeeperId,scoreOwn:sc0.own,scoreOpp:sc0.opp,timestamp:new Date().toISOString()};
-  state.shots.push(shot); updateStats(); updateScore();
+  state.shots.push(shot); updateStats(); updateScore(); checkZoneAlert();
   saveCurrentSession();
   fullReset();
   if(!gameClock.running&&!gameClock.intervalId)startClock();
@@ -611,7 +651,7 @@ $('btnUndo').addEventListener('click',()=>{
   if(regularShots.length===0){showToast('Kein Shot zum Löschen','error');return}
   const lastShot=regularShots[regularShots.length-1];
   const idx=state.shots.findIndex(s=>s.id===lastShot.id);
-  if(idx>=0){state.shots.splice(idx,1);updateStats();updateScore();saveCurrentSession();showToast('↩ Letzter Shot gelöscht','success')}
+  if(idx>=0){state.shots.splice(idx,1);updateStats();updateScore();checkZoneAlert();saveCurrentSession();showToast('↩ Letzter Shot gelöscht','success')}
 });
 
 function resetToStep(s){clearSelection();state.step=s;if(s<=1){state.shooterZone=null;state.targetZone=null}if(s<=2){state.outcome=null;enableOutcome(false);btnSave.classList.remove('selected');btnGoal.classList.remove('selected')}if(s<=3){state.bodyPart=null;state.bodyDetail=null;bodypartRow.classList.remove('visible')}btnSubmit.disabled=true;selDisplay.textContent='👆 Wurfzone tippen'}
@@ -659,6 +699,7 @@ function updateStats(){
   if($('statPct2'))$('statPct2').textContent=total>0?pct+'%':'—%';
   const effShots=shots.filter(s=>!s.opponentGoal);
   updateEffBar(saves,effShots.length); updateFieldHeatmap(shots); updateHistory(shots); updateChart(shots); updateSeasonAverage();
+  renderSpecialStats(shots); renderBodypartStats(shots); updateMomentumStrip();
   if(!analysisMode)saveCurrentSession();
   updateScore();
 }
@@ -882,7 +923,6 @@ $('btnCombineSessions').addEventListener('click',()=>{
 document.querySelectorAll('.tab-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');const t=this.dataset.screen;showScreen(t);if(t==='screenStats'){renderKeeperFilter();updateStats()}if(t==='screenHistory'){renderSessionList();$('headerNewGame').textContent=currentSession&&!currentSession.closed?'⚙️':'+ Neu'}})});
 function openLegend(){$('legendMask').classList.add('open')}
 function closeLegend(){$('legendMask').classList.remove('open')}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')$('legendMask').classList.remove('open')});
 
 // INIT
 document.querySelectorAll('#screenInput .target-zone').forEach(el=>el.style.fill='var(--q-empty)');
@@ -911,6 +951,119 @@ renderSessionList();
 // Sicherheitsnetz: Speicherstand vor Hintergrund/Tab-Wechsel/Reload sichern
 window.addEventListener('pagehide',()=>{if(currentSession&&!currentSession.closed)saveCurrentSession()});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&currentSession&&!currentSession.closed)saveCurrentSession()});
+
+// MOMENTUM STRIP
+function updateMomentumStrip(){
+  const el=$('momentumStrip');if(!el)return;
+  const relevant=state.shots.filter(s=>!s.opponentGoal&&s.shooterZone!=='-').slice(-5);
+  const dots=[];
+  for(let i=0;i<5;i++){const s=relevant[i];dots.push('<span class="momentum-dot '+(s?(s.outcome==='saved'?'saved':'goal'):'empty')+'"></span>')}
+  el.innerHTML='<span class="momentum-label">Trend</span>'+dots.join('');
+}
+
+// ZONE ALERT
+function checkZoneAlert(){
+  if(!currentSession||analysisMode)return;
+  const now=gameClock.minute, tenBack=Math.max(0,now-10);
+  const recent=state.shots.filter(s=>!s.opponentGoal&&s.outcome==='goal'&&(s.gameMinute||0)>=tenBack);
+  const counts={};recent.forEach(s=>{counts[s.shooterZone]=(counts[s.shooterZone]||0)+1});
+  const newAlerts=new Set(Object.keys(counts).filter(z=>counts[z]>=2));
+  const wasEmpty=alertZones.size===0;alertZones=newAlerts;
+  if(state.step===1)clearSelection();
+  if(!wasEmpty&&alertZones.size>0)navigator.vibrate&&navigator.vibrate([80,40,80]);
+}
+
+// HZ MODAL
+function openHZModal(){
+  const shots=(analysisMode?analysisShots:state.shots).filter(s=>!s.opponentGoal&&s.shooterZone!=='-');
+  const half=currentSession?(currentSession.halfLength||30):30;
+  const hz1=shots.filter(s=>(s.gameMinute||0)<=half), hz2=shots.filter(s=>(s.gameMinute||0)>half);
+  const st=arr=>{const sv=arr.filter(s=>s.outcome==='saved').length,gl=arr.filter(s=>s.outcome==='goal').length,t=arr.length,p=t>0?Math.round(sv/t*100):null;return{sv,gl,t,p}};
+  const s1=st(hz1),s2=st(hz2);
+  const fmt=s=>s.p!==null?s.p+'% ('+s.sv+'/'+s.t+')':(s.t===0?'—':''+s.sv+'/'+s.t);
+  const goalsByZone={};shots.filter(s=>s.outcome==='goal').forEach(s=>{goalsByZone[s.shooterZone]=(goalsByZone[s.shooterZone]||0)+1});
+  const topZ=Object.entries(goalsByZone).sort((a,b)=>b[1]-a[1])[0];
+  const lastGoals=[...shots].filter(s=>s.outcome==='goal').sort((a,b)=>(b.gameMinute||0)-(a.gameMinute||0)).slice(0,3);
+  let html='<h3>📊 Halbzeit-Analyse</h3>';
+  html+='<div class="hz-row"><div class="hz-col"><div class="hz-label">1. Halbzeit</div><div class="hz-val'+(s1.t===0?' dim':'')+'">'+fmt(s1)+'</div></div><div class="hz-col"><div class="hz-label">2. Halbzeit</div><div class="hz-val'+(s2.t===0?' dim':'')+'">'+fmt(s2)+'</div></div></div>';
+  if(topZ)html+='<div class="hz-weakness">⚠️ Schwachzone: <strong>'+(SHOOTER_LABEL[topZ[0]]||topZ[0])+'</strong> ('+topZ[1]+' Tor'+(topZ[1]>1?'e':'')+')</div>';
+  if(lastGoals.length>0){html+='<div class="hz-goals-title">Letzte Tore</div>';lastGoals.forEach(g=>{const mn=Math.floor(g.gameMinute||0)+1;html+='<div class="hz-goal-item">⚽ '+mn+"' · "+(SHOOTER_LABEL[g.shooterZone]||g.shooterZone)+' → '+(ZONE_LABEL[g.targetZone]||g.targetZone)+'</div>'})}
+  html+='<button class="mclose" onclick="closeHZModal()">Schließen</button>';
+  $('hzModalBox').innerHTML=html;$('hzMask').classList.add('open');
+}
+function closeHZModal(){$('hzMask').classList.remove('open')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('legendMask').classList.remove('open');$('hzMask').classList.remove('open')}});
+
+// BODYPART STATS
+function renderBodypartStats(shots){
+  const el=$('bodypartStats');if(!el)return;
+  const rel=shots.filter(s=>!s.opponentGoal&&s.bodyPart);
+  if(rel.length<3){el.style.display='none';return}
+  const parts=['hand','fuss','koerper'],labels={hand:'🤚 Hand',fuss:'🦵 Fuß',koerper:'💪 Körper'};
+  let html='<div class="chart-header" style="margin-top:10px">Körperteil-Statistik</div>';
+  html+='<table class="bp-table"><tr><th>Körperteil</th><th>Geh.</th><th>Tore</th><th>Quote</th></tr>';
+  let hasRow=false;
+  parts.forEach(p=>{
+    const ps=rel.filter(s=>s.bodyPart===p);if(!ps.length)return;hasRow=true;
+    const sv=ps.filter(s=>s.outcome==='saved').length,gl=ps.filter(s=>s.outcome==='goal').length,pct=Math.round(sv/ps.length*100);
+    const cls=classifySP(pct,ps.length);
+    html+=`<tr><td>${labels[p]}</td><td style="color:var(--q-good);font-weight:700">${sv}</td><td style="color:var(--accent);font-weight:700">${gl}</td><td style="color:${cls.color};font-weight:800">${pct}%</td></tr>`;
+  });
+  html+='</table>';
+  if(!hasRow){el.style.display='none';return}
+  el.innerHTML=html;el.style.display='';
+}
+
+// SPECIAL STATS (1v1, 7m)
+function renderSpecialStats(shots){
+  const el=$('specialStats');if(!el)return;
+  const gs=shots.filter(s=>!s.opponentGoal);
+  let html='';
+  const v1=gs.filter(s=>s.is1v1);
+  if(v1.length>=2){const sv=v1.filter(s=>s.outcome==='saved').length,pct=Math.round(sv/v1.length*100),cls=classifySP(pct,v1.length);html+=`<div class="special-stat-row"><span>⚡ 1-gegen-1</span><span class="ss-mid">${sv}/${v1.length} gehalten</span><span class="ss-pct" style="color:${cls.color}">${pct}%</span></div>`}
+  const s7=gs.filter(s=>s.shooterZone==='7m');
+  if(s7.length>=2){const sv=s7.filter(s=>s.outcome==='saved').length,pct=Math.round(sv/s7.length*100),cls=classifySP(pct,s7.length);html+=`<div class="special-stat-row"><span>🎯 7-Meter</span><span class="ss-mid">${sv}/${s7.length} gehalten</span><span class="ss-pct" style="color:${cls.color}">${pct}%</span></div>`}
+  if(html){el.innerHTML='<div class="chart-header" style="margin-top:10px">Situationen</div><div class="special-stats-box">'+html+'</div>';el.style.display=''}
+  else el.style.display='none';
+}
+
+// CSV EXPORT
+function findSessionForShot(shotId){
+  if(analysisSessions&&analysisSessions.length>0)return analysisSessions.find(s=>(s.shots||[]).some(sh=>sh.id===shotId));
+  return currentSession;
+}
+function buildCSVRows(shots){
+  const BOM='﻿';
+  const headers='datum;gegner;spieltyp;halbzeit;spielminute;wurfzone;torzone_nr;torzone_label;ergebnis;koerperteil;koerperteil_detail;ist_1v1;torwart_name;trikotnummer;spielstand_heim;spielstand_gast';
+  const rows=shots.filter(s=>!s.opponentGoal&&s.shooterZone!=='-').map(s=>{
+    const sess=s._session||findSessionForShot(s.id),hl=sess?(sess.halfLength||30):30;
+    const hz=(s.gameMinute||0)<=hl?1:2;
+    const k=sess?(sess.keepers||[]).find(k=>k.id===s.keeperId):null;
+    const kn=s.keeperName||(k?keeperName(k):''),knr=k?k.number:'';
+    return [sess?sess.date:'',sess?(sess.opponent||''):'',sess?(TYPE_LABEL[sess.type]||''):'',hz,Math.round(s.gameMinute||0),(SHOOTER_LABEL[s.shooterZone]||s.shooterZone),(s.targetZone||''),(ZONE_LABEL[s.targetZone]||''),(s.outcome==='saved'?'gehalten':'tor'),(s.bodyPart||''),(s.bodyDetail||''),(s.is1v1?'ja':'nein'),kn,knr,(s.scoreOwn!==undefined?s.scoreOwn:''),(s.scoreOpp!==undefined?s.scoreOpp:'')].join(';');
+  });
+  return BOM+headers+'\n'+rows.join('\n');
+}
+function triggerDownload(content,filename){
+  const blob=new Blob([content],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+function exportCSV(){
+  const shots=getDisplayShots();if(!shots.filter(s=>!s.opponentGoal&&s.shooterZone!=='-').length){showToast('Keine Shots zum Exportieren','error');return}
+  triggerDownload(buildCSVRows(shots),'gk-export-'+new Date().toISOString().slice(0,10)+'.csv');
+  showToast('📥 CSV exportiert ('+shots.filter(s=>!s.opponentGoal&&s.shooterZone!=='-').length+' Shots)','success');
+}
+function exportSessionsCSV(){
+  if(!selectedSessionIds.size){showToast('Keine Auswahl','error');return}
+  const selected=loadSessions().filter(s=>selectedSessionIds.has(s.id));
+  const shots=selected.flatMap(s=>s.shots.map(sh=>({...sh,_session:s,keeperName:keeperName((s.keepers||[]).find(k=>k.id===sh.keeperId))})));
+  if(!shots.filter(s=>!s.opponentGoal&&s.shooterZone!=='-').length){showToast('Keine Shots','error');return}
+  const dates=selected.map(s=>s.date).sort();
+  const fn='gk-export-'+dates[0]+(dates.length>1?'-bis-'+dates[dates.length-1]:'')+'.csv';
+  triggerDownload(buildCSVRows(shots),fn);
+  showToast('📥 '+selected.length+' Spiele exportiert','success');
+}
 
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{r.update()}).catch(()=>{});
 updateSyncStatus(navigator.onLine);
