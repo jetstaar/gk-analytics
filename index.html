@@ -651,8 +651,9 @@ function editClock(){
 function updateScore(){
   const own=state.shots.filter(s=>s.opponentGoal).length;
   const opp=state.shots.filter(s=>s.outcome==='goal'&&!s.opponentGoal).length;
-  $('scoreOwn').textContent=own;
-  $('scoreOpp').textContent=opp;
+  const away=currentSession&&currentSession.type==='auswaerts';
+  $('scoreOwn').textContent=away?opp:own;
+  $('scoreOpp').textContent=away?own:opp;
 }
 function currentScoreSnapshot(){return{own:state.shots.filter(s=>s.opponentGoal).length,opp:state.shots.filter(s=>s.outcome==='goal'&&!s.opponentGoal).length}}
 $('btnOppGoal').addEventListener('click',()=>{
@@ -854,7 +855,8 @@ function updateHistory(shots){
     if(sh.opponentGoal)lbl=(currentSession?currentSession.club:'')+' Tor';
     const sl=SHOOTER_LABEL[sh.shooterZone]||sh.shooterZone,tl=ZONE_LABEL[sh.targetZone]||sh.targetZone;
     const mn=sh.gameMinute!==undefined?Math.floor(sh.gameMinute)+1+"'":'';
-    const scoreStr=sh.scoreOwn!==undefined?' · '+sh.scoreOwn+':'+sh.scoreOpp:'';
+    const _away=currentSession&&currentSession.type==='auswaerts';
+    const scoreStr=sh.scoreOwn!==undefined?' · '+(_away?sh.scoreOpp+':'+sh.scoreOwn:sh.scoreOwn+':'+sh.scoreOpp):'';
     return `<div class="history-item ${cls}"><span class="h-icon">${icon}</span><span class="h-info"><strong>${sh.opponentGoal?'—':sl}${v1}${sh.opponentGoal?'':'→'+tl}</strong> ${lbl}${body}</span><span class="h-time">${mn}${scoreStr}</span></div>`;
   }).join('');
 }
@@ -954,7 +956,8 @@ function renderSessionList(){
     let keeperInfo='';
     if(s.keepers&&s.keepers.length>0)keeperInfo=' · '+(s.keepers.length>1?'🧤'+s.keepers.length+' TW':'🧤 #'+s.keepers[0].number);
     const fOwn=s.shots.filter(sh=>sh.opponentGoal).length,fOpp=s.shots.filter(sh=>!sh.opponentGoal&&sh.outcome==='goal').length;
-    const scoreDisp=(fOwn+fOpp>0&&s.closed)?' · '+fOwn+':'+fOpp:'';
+    const _isAway=s.type==='auswaerts';
+    const scoreDisp=(fOwn+fOpp>0&&s.closed)?' · '+(_isAway?fOpp+':'+fOwn:fOwn+':'+fOpp):'';
     const cls=s.closed?'session-item '+s.type+' closed':'session-item '+s.type;
     return `<div class="${cls}"><input type="checkbox" class="si-cb" ${checked} onchange="onSessionCheck('${s.id}',this.checked)"><span class="si-club ${clubCls}">${clubLabel}</span><span class="si-icon" onclick="viewSession('${s.id}')">${TYPE_EMOJI[s.type]}</span><span class="si-info" onclick="viewSession('${s.id}')"><div class="si-title">${TYPE_LABEL[s.type]}${opp}</div><div class="si-sub">${dateStr}${scoreDisp} · ${total} Shots${keeperInfo}</div></span><span class="si-stat" onclick="viewSession('${s.id}')">${pct}</span></div>`;
   }).join('');
