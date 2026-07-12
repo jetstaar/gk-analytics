@@ -207,7 +207,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 </style></head><body>
 
 <header><h1>GK-Analytics <small>B-Jugend</small></h1><button class="header-btn" id="headerNewGame">+ Neu</button></header>
-<div class="status-bar"><span><span class="dot dot-green"></span>Bereit</span><span id="statusSession">Kein aktives Spiel</span><span id="syncStatus"><span class="dot dot-gray"></span>Offline</span></div>
+<div class="status-bar"><span><span class="dot dot-green"></span>Bereit</span><span id="statusSession">Kein aktives Spiel</span><span id="syncStatus"><span class="dot dot-gray"></span>Offline</span><span id="swVersion" style="color:var(--text-dim);font-size:10px">v10</span><button onclick="manualSync()" style="background:none;border:1px solid var(--border);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer">🔄 Sync</button></div>
 
 <main>
 <!-- SCREEN 0: SETUP -->
@@ -428,6 +428,16 @@ async function syncToSupabase(session){
   }catch(e){console.error('Supabase:',e);return false}
 }
 function updateSyncStatus(ok){const el=$('syncStatus');if(el)el.innerHTML=ok?'<span class="dot dot-green"></span>Synced':'<span class="dot dot-gray"></span>Offline'}
+async function manualSync(){
+  const all=loadSessions();
+  if(!all.length){showToast('Keine Spiele zum Synchronisieren','error');return}
+  if(!navigator.onLine){showToast('Kein Internet','error');return}
+  showToast('Synchronisiere '+all.length+' Spiele…','');
+  let ok=0,fail=0;
+  for(let i=0;i<all.length;i++){const res=await syncToSupabase(all[i]);if(res)ok++;else fail++}
+  updateSyncStatus(fail===0);
+  showToast(fail===0?'✅ '+ok+' Spiele gesichert':'⚠️ '+ok+' ok · '+fail+' fehlgeschlagen',fail===0?'success':'error');
+}
 
 let currentSession=null, selectedSessionIds=new Set(), filterClub='all', filterType='all', analysisMode=false, analysisShots=[], analysisKeepers=[], analysisSessions=[], activeKeeperFilter='all', alertZones=new Set();
 function keeperName(k){return k?((k.firstName||'')+' '+(k.lastName||'')).trim():''}
