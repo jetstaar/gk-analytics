@@ -1008,10 +1008,13 @@ $('btnCloseSessions').addEventListener('click',()=>{
 });
 $('btnDeleteSessions').addEventListener('click',()=>{
   if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}
+  const all=loadSessions(), toDelete=all.filter(s=>selectedSessionIds.has(s.id));
+  const names=toDelete.map(s=>{const d=new Date(s.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});return'• '+d+' '+TYPE_LABEL[s.type]+(s.opponent?' vs. '+s.opponent:'')+(s.closed?' 🔒':'')}).join('\n');
+  const msg=toDelete.length===1?'Dieses Spiel wirklich löschen?\n\n'+names+'\n\nDiese Aktion kann nicht rückgängig gemacht werden.':'Diese '+toDelete.length+' Spiele wirklich löschen?\n\n'+names+'\n\nDiese Aktion kann nicht rückgängig gemacht werden.';
+  if(!confirm(msg))return;
   const blockedActive=currentSession&&!currentSession.closed&&state.shots.length>0&&selectedSessionIds.has(currentSession.id);
-  let all=loadSessions();
-  all=all.filter(s=>!selectedSessionIds.has(s.id)||(currentSession&&s.id===currentSession.id&&!s.closed&&state.shots.length>0));
-  saveSessions(all);selectedSessionIds.clear();renderSessionList();
+  const remaining=all.filter(s=>!selectedSessionIds.has(s.id)||(currentSession&&s.id===currentSession.id&&!s.closed&&state.shots.length>0));
+  saveSessions(remaining);selectedSessionIds.clear();renderSessionList();
   showToast(blockedActive?'🗑 Gelöscht (aktives Spiel übersprungen)':'🗑 Gelöscht','error');
 });
 $('btnCombineSessions').addEventListener('click',()=>{
