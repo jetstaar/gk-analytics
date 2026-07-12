@@ -415,10 +415,10 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 </div></div>
 
 <script>
-const $=id=>document.getElementById(id), SB_URL='https://viifhaixfteetqrfyuul.supabase.co', SB_ANON='eyJhbG...GL2E';
+const $=id=>document.getElementById(id), SB_URL='https://viifhaixfteetqrfyuul.supabase.co', SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpaWZoYWl4ZnRlZXRxcmZ5dXVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMTE5MTIsImV4cCI6MjA4NDU4NzkxMn0.kWmw1XUz8-nb6HmeEw4bVfZ-79vPCboPYC1RWtCXQ7M';
 let sb=null; try{sb=supabase.createClient(SB_URL,SB_ANON)}catch(e){}
 async function syncToSupabase(session){
-  if(!navigator.onLine||!session||session.closed) return false;
+  if(!navigator.onLine||!session) return false;
   try{
     const{error:sErr}=await sb.from('handball_sessions').upsert({id:session.id,date:session.date,type:session.type,club:session.club,opponent:session.opponent||'',half_length:session.halfLength||30,closed:!!session.closed,keepers:session.keepers||[],keeper_changes:session.keeperChanges||[]},{onConflict:'id'});
     if(sErr)throw sErr;
@@ -1004,6 +1004,7 @@ $('btnCloseSessions').addEventListener('click',()=>{
   all=all.map(s=>{if(selectedSessionIds.has(s.id))s.closed=true;return s});
   saveSessions(all);
   if(currentSession&&selectedSessionIds.has(currentSession.id))currentSession.closed=true;
+  all.filter(s=>selectedSessionIds.has(s.id)).forEach(s=>syncToSupabase(s).then(ok=>updateSyncStatus(ok)));
   selectedSessionIds.clear();renderSessionList();showToast('🔒 Abgeschlossen','success');
 });
 $('btnDeleteSessions').addEventListener('click',()=>{
@@ -1290,8 +1291,14 @@ function exportSessionsCSV(){
 
 
 (function(){const cleaned=loadSessions().filter(s=>s.id!=='demo_game_1'&&s.id!=='demo_game_2');if(cleaned.length!==loadSessions().length){saveSessions(cleaned);renderSessionList()}})();
+// Startup-Backup: alle lokalen Spiele in Supabase sichern
+if(navigator.onLine){
+  const allLocal=loadSessions();
+  let synced=0;
+  allLocal.forEach((s,i)=>setTimeout(()=>syncToSupabase(s).then(ok=>{if(ok){synced++;if(synced===allLocal.length)updateSyncStatus(true)}}),i*200));
+}
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{r.update()}).catch(()=>{});
 updateSyncStatus(navigator.onLine);
-window.addEventListener('online',()=>updateSyncStatus(true));
+window.addEventListener('online',()=>{updateSyncStatus(true);loadSessions().forEach((s,i)=>setTimeout(()=>syncToSupabase(s),i*200))});
 window.addEventListener('offline',()=>updateSyncStatus(false));
 </script></body></html>
