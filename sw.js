@@ -1,4 +1,4 @@
-const CACHE = 'gk-v14';
+const CACHE = 'gk-v18';
 const PRECACHE = [
   './',
   './index.html',

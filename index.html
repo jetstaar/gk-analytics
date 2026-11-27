@@ -120,7 +120,9 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 .session-item .si-club.hga{background:rgba(74,143,232,0.2);color:#4a8fe8}
 .session-item.closed{opacity:.6}
 .session-item.heim{border-left-color:#2f9e6e}.session-item.auswaerts{border-left-color:var(--accent)}
-.session-item.freundschaft{border-left-color:#4a8fe8}.session-item.training{border-left-color:var(--gold)}
+.session-item.liga{border-left-color:#b07be8}.session-item.freundschaft{border-left-color:#4a8fe8}
+.si-edit{background:none;border:none;font-size:16px;padding:6px;margin-left:4px;cursor:pointer;min-width:44px;min-height:44px}
+.edit-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px}.edit-box{background:var(--card);border-radius:14px;padding:16px;width:100%;max-width:420px;max-height:90vh;overflow:auto}.edit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}.session-item.training{border-left-color:var(--gold)}
 .scroll-area{width:100%;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;padding-bottom:4px}
 .title-row{width:100%;display:flex;align-items:center;justify-content:space-between;padding:2px 2px 0}
 .title-row .title-main{font-size:16px;font-weight:800;color:var(--text)}
@@ -207,7 +209,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 </style></head><body>
 
 <header><h1>GK-Analytics <small>B-Jugend</small></h1><button class="header-btn" id="headerNewGame">+ Neu</button></header>
-<div class="status-bar"><span><span class="dot dot-green"></span>Bereit</span><span id="statusSession">Kein aktives Spiel</span><span id="syncStatus"><span class="dot dot-gray"></span>Offline</span><span id="swVersion" style="color:var(--text-dim);font-size:10px">v13</span><button onclick="manualSync()" style="background:none;border:1px solid var(--border);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer">🔄 Sync</button></div>
+<div class="status-bar"><span><span class="dot dot-green"></span>Bereit</span><span id="statusSession">Kein aktives Spiel</span><span id="syncStatus"><span class="dot dot-gray"></span>Offline</span><span id="swVersion" style="color:var(--text-dim);font-size:10px">…</span><button onclick="manualSync()" style="background:none;border:1px solid var(--border);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer">🔄 Sync</button></div>
 
 <main>
 <!-- SCREEN 0: SETUP -->
@@ -216,9 +218,11 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div class="setup-title">⚽ Neues Spiel</div>
 <div class="setup-field"><div class="setup-label">Verein</div><div class="setup-clubs"><button class="setup-club-btn selected" data-club="ESV">ESV</button><button class="setup-club-btn" data-club="HGA">HGA</button></div></div>
 <div class="setup-field"><div class="setup-label">Datum</div><input type="date" id="setupDate" class="setup-input"/></div>
-<div class="setup-field"><div class="setup-label">Spieltyp</div><div class="setup-types"><button class="setup-type-btn selected" data-type="heim">🏠 Heimspiel</button><button class="setup-type-btn" data-type="auswaerts">✈️ Auswärts</button><button class="setup-type-btn" data-type="freundschaft">🤝 Freundschaft</button><button class="setup-type-btn" data-type="training">🏃 Training</button></div></div>
+<div class="setup-field"><div class="setup-label">Spieltyp</div><div class="setup-types"><button class="setup-type-btn selected" data-type="heim">🏠 Heimspiel</button><button class="setup-type-btn" data-type="auswaerts">✈️ Auswärts</button><button class="setup-type-btn" data-type="training">🏃 Training</button></div></div>
+<div class="setup-field" id="ligaYesField"><div class="setup-label">Ligaspiel</div><div class="setup-clubs"><button class="setup-ligayes-btn setup-club-btn selected" data-yes="0">Nein</button><button class="setup-ligayes-btn setup-club-btn" data-yes="1">🏆 Ja</button></div></div>
+<div class="setup-field" id="ligaField" style="display:none"><div class="setup-label">Liga</div><div class="setup-clubs"><button class="setup-liga-btn setup-club-btn selected" data-liga="RL">RL</button><button class="setup-liga-btn setup-club-btn" data-liga="OL">OL</button></div></div>
 <div class="setup-field" id="opponentField"><div class="setup-label">Gegner</div><input type="text" id="setupOpponent" class="setup-input" placeholder="z.B. TSV Musterstadt"/></div>
-<div class="setup-field"><div class="setup-label">Halbzeit (Minuten)</div><div class="setup-half"><input type="number" id="setupHalf" class="setup-input" value="30" min="1" max="60"/><span>min</span></div></div>
+<div class="setup-field"><div class="setup-label">Halbzeit (Minuten)</div><div class="setup-half"><input type="number" id="setupHalf" class="setup-input" value="25" min="1" max="60"/><span>min</span></div></div>
 <div class="setup-field"><div class="setup-keeper-header"><div class="setup-label">Torhüter</div></div>
 <div id="rosterList" style="margin-bottom:4px"></div>
 <button class="setup-keeper-add" id="btnAddKeeper">➕ Neuen Torhüter anlegen</button></div>
@@ -305,7 +309,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div id="combinedInfo" style="display:none;width:100%;font-size:11px;color:var(--text-dim);background:var(--card);border-radius:8px;padding:6px 10px;margin:2px 0"></div>
 <div class="keeper-filter" id="keeperFilter"></div>
 <div class="eff-bar" onclick="openLegend()"><span class="eff-label" id="statsEffLabel">Effizienz Torwart</span><span class="eff-value"><span class="eff-pct" id="effPct">—%</span><span class="eff-frac" id="effFrac">0/0</span><span class="eff-frac" id="effPlaytime" style="display:none"></span><span class="eff-class" id="effClass">—</span></span></div>
-<div class="eff-bar" id="seasonAvgBar" style="display:none" onclick="openLegend()"><span class="eff-label">📅 Saison-Schnitt</span><span class="eff-value"><span class="eff-pct" id="seasonPct">—%</span><span class="eff-frac" id="seasonFrac">0/0</span><span class="eff-class" id="seasonClass">—</span></span></div>
+<div class="eff-bar" id="seasonAvgBar" style="display:none" onclick="openLegend()"><span class="eff-label">📅 Saison-Schnitt</span><button class="s-filter-btn" id="seasonClubBtn" onclick="event.stopPropagation();cycleSeasonClub()" style="padding:2px 8px;font-size:10px">ESV+HGA</button><span class="eff-value"><span class="eff-pct" id="seasonPct">—%</span><span class="eff-frac" id="seasonFrac">0/0</span><span class="eff-class" id="seasonClass">—</span></span></div>
 <div class="field-container" id="statsFieldContainer" style="margin-top:6px">
 <svg viewBox="0 0 400 460" xmlns="http://www.w3.org/2000/svg">
 <defs><pattern id="postStripes2" width="16" height="16" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="16" height="8" fill="var(--accent)"/><rect y="8" width="16" height="8" fill="#fff"/></pattern></defs>
@@ -375,7 +379,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div class="s-filter"><button class="s-filter-btn active" data-filter="club" data-val="all">Alle</button><button class="s-filter-btn esv" data-filter="club" data-val="ESV">ESV</button><button class="s-filter-btn hga" data-filter="club" data-val="HGA">HGA</button>
 <span style="color:var(--border);padding:0 2px">|</span>
 <button class="s-filter-btn" data-filter="type" data-val="heim">🏠 Heim</button><button class="s-filter-btn" data-filter="type" data-val="auswaerts">✈️ Auswärts</button>
-<button class="s-filter-btn" data-filter="type" data-val="freundschaft">🤝 Freundsch.</button><button class="s-filter-btn" data-filter="type" data-val="training">🏃 Training</button>
+<button class="s-filter-btn" data-filter="type" data-val="freundschaft">🤝 Freundsch.</button><button class="s-filter-btn" data-filter="type" data-val="liga">🏆 Liga</button><button class="s-filter-btn" data-filter="type" data-val="training">🏃 Training</button>
 </div>
 <div class="s-actions" id="sessionActions" style="display:none">
 <button class="btn-close" id="btnCloseSessions">🔒 Abschl.</button><button class="btn-del" id="btnDeleteSessions">🗑 Löschen</button><button class="btn-combine" id="btnCombineSessions">📊 Kombin.</button><button class="btn-export-csv" onclick="exportSessionsCSV()">📥 CSV</button>
@@ -414,13 +418,23 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <button class="mclose" onclick="closeLegend()">Verstanden</button>
 </div></div>
 
+<div class="edit-modal" id="editModal"><div class="edit-box">
+<div class="setup-title">✏️ Spiel bearbeiten</div>
+<div class="setup-field"><div class="setup-label">Verein</div><div class="edit-grid" id="editClub"></div></div>
+<div class="setup-field"><div class="setup-label">Datum</div><input type="date" id="editDate" class="setup-input"/></div>
+<div class="setup-field"><div class="setup-label">Spieltyp</div><div class="edit-grid" id="editType"></div></div>
+<div class="setup-field" id="editLigaYesF"><div class="setup-label">Ligaspiel</div><div class="edit-grid" id="editLigaYes"></div></div>
+<div class="setup-field" id="editLigaF"><div class="setup-label">Liga</div><div class="edit-grid" id="editLiga"></div></div>
+<div class="setup-field" id="editOppF"><div class="setup-label">Gegner</div><input type="text" id="editOpp" class="setup-input"/></div>
+<div class="edit-grid"><button class="setup-type-btn" onclick="closeEditSession()">Abbrechen</button><button class="setup-type-btn selected" onclick="saveEditSession()">Speichern</button></div>
+</div></div>
 <script>
 const $=id=>document.getElementById(id), SB_URL='https://viifhaixfteetqrfyuul.supabase.co', SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpaWZoYWl4ZnRlZXRxcmZ5dXVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMTE5MTIsImV4cCI6MjA4NDU4NzkxMn0.kWmw1XUz8-nb6HmeEw4bVfZ-79vPCboPYC1RWtCXQ7M';
 let sb=null; try{sb=supabase.createClient(SB_URL,SB_ANON)}catch(e){}
 async function syncToSupabase(session){
   if(!navigator.onLine||!session) return false;
   try{
-    const{error:sErr}=await sb.from('handball_sessions').upsert({id:session.id,date:session.date,type:session.type,club:session.club,opponent:session.opponent||'',half_length:session.halfLength||30,closed:!!session.closed,keepers:session.keepers||[],keeper_changes:session.keeperChanges||[]},{onConflict:'id'});
+    const{error:sErr}=await sb.from('handball_sessions').upsert({id:session.id,date:session.date,type:session.type,club:session.club,opponent:session.opponent||'',half_length:session.halfLength||30,closed:!!session.closed,keepers:session.keepers||[],keeper_changes:session.keeperChanges||[],liga:session.liga||null,meta_ts:session.metaTs||0},{onConflict:'id'});
     if(sErr)throw sErr;
     const shots=session.shots.map(s=>({id:s.id,session_id:session.id,shooter_zone:s.shooterZone,target_zone:s.targetZone,outcome:s.outcome,opponent_goal:s.opponentGoal||false,is_1v1:s.is1v1||false,body_part:s.bodyPart||null,body_detail:s.bodyDetail||null,game_minute:s.gameMinute||0,keeper_id:s.keeperId||'',shot_timestamp:s.timestamp||new Date().toISOString()}));
     if(shots.length>0){const{error:shErr}=await sb.from('handball_shots').upsert(shots,{onConflict:'id'});if(shErr)throw shErr}
@@ -428,6 +442,12 @@ async function syncToSupabase(session){
   }catch(e){console.error('Supabase:',e);return false}
 }
 function updateSyncStatus(ok){const el=$('syncStatus');if(el)el.innerHTML=ok?'<span class="dot dot-green"></span>Synced':'<span class="dot dot-gray"></span>Offline'}
+function loadTombs(){try{return JSON.parse(localStorage.getItem('gk_deleted')||'[]')}catch(e){return[]}}
+function saveTombs(a){localStorage.setItem('gk_deleted',JSON.stringify([...new Set(a.map(String))]))}
+async function pushDeleted(ids){
+  if(!ids.length||!sb||!navigator.onLine)return;
+  try{await sb.from('handball_sessions').update({deleted:true,meta_ts:Date.now()}).in('id',ids)}catch(e){console.error('Delete sync:',e)}
+}
 async function fetchAll(table){
   let out=[],from=0;
   for(;;){const{data,error}=await sb.from(table).select('*').range(from,from+999);if(error)throw error;out=out.concat(data||[]);if(!data||data.length<1000)break;from+=1000}
@@ -439,18 +459,25 @@ async function mergeFromCloud(){
   try{
     const cs=await fetchAll('handball_sessions'), csh=await fetchAll('handball_shots');
     const by={};csh.forEach(sh=>{(by[sh.session_id]=by[sh.session_id]||[]).push({id:sh.id,shooterZone:sh.shooter_zone,targetZone:sh.target_zone,outcome:sh.outcome,opponentGoal:sh.opponent_goal||false,is1v1:sh.is_1v1||false,bodyPart:sh.body_part||null,bodyDetail:sh.body_detail||null,gameMinute:sh.game_minute||0,keeperId:sh.keeper_id||'',timestamp:sh.shot_timestamp})});
-    const all=loadSessions(), activeId=currentSession&&!currentSession.closed?currentSession.id:null;
+    let all=loadSessions(), activeId=currentSession&&!currentSession.closed?currentSession.id:null;
+    const tombs=new Set(loadTombs());
+    cs.forEach(c=>{if(c.deleted&&String(c.id)!==String(activeId))tombs.add(String(c.id))});
+    const reMark=cs.filter(c=>!c.deleted&&tombs.has(String(c.id))).map(c=>c.id);
+    all=all.filter(x=>String(x.id)===String(activeId)||!tombs.has(String(x.id)));
+    saveTombs([...tombs]);
     let added=0;
     cs.forEach(c=>{
-      if(c.id===activeId) return;
+      if(c.id===activeId||tombs.has(String(c.id))) return;
       const loc=all.find(x=>String(x.id)===String(c.id)), cshots=by[c.id]||[];
-      if(!loc){all.push({id:c.id,date:c.date,type:c.type,club:c.club||'ESV',opponent:c.opponent||'',halfLength:c.half_length||30,closed:!!c.closed,keepers:c.keepers||[],keeperChanges:c.keeper_changes||[],shots:cshots,clockMinute:0,clockRunning:false});added++;return}
+      if(!loc){all.push({id:c.id,date:c.date,type:c.type,club:c.club||'ESV',opponent:c.opponent||'',halfLength:c.half_length||30,closed:!!c.closed,keepers:c.keepers||[],keeperChanges:c.keeper_changes||[],liga:c.liga||undefined,metaTs:c.meta_ts||0,shots:cshots,clockMinute:0,clockRunning:false});added++;return}
       const ids=new Set((loc.shots||[]).map(x=>String(x.id)));
       cshots.forEach(x=>{if(!ids.has(String(x.id))){loc.shots.push(x);added++}});
+      if((c.meta_ts||0)>(loc.metaTs||0)){loc.date=c.date;loc.type=c.type;loc.club=c.club||loc.club;loc.opponent=c.opponent||'';loc.liga=c.liga||undefined;loc.metaTs=c.meta_ts}
       if(c.closed)loc.closed=true;
       if((!loc.keepers||!loc.keepers.length)&&c.keepers&&c.keepers.length)loc.keepers=c.keepers;
     });
     saveSessions(all);
+    await pushDeleted(reMark);
     let fail=0;for(const x of all){if(x.id===activeId)continue;if(!(await syncToSupabase(x)))fail++}
     renderSessionList();
     return {ok:fail===0,added,total:all.length,fail};
@@ -494,8 +521,20 @@ function getKeeperPlaytime(session,keeperId,endMinute){
 
 const ZONE_LABEL={1:'OR',2:'OM',3:'OL',4:'MR',5:'MM',6:'ML',7:'UR',8:'UM',9:'UL'};
 const SHOOTER_LABEL={'LA':'LA','KL':'KL','KM':'KM','KR':'KR','RA':'RA','HL':'HL','HM':'HM','HR':'HR','7m':'7m','A':'LA','B':'KL','C':'KM','D':'KR','E':'RA','F':'HL','G':'HM','H':'HR'};
-const TYPE_LABEL={heim:'Heimspiel',auswaerts:'Auswärtsspiel',freundschaft:'Freundschaftsspiel',training:'Training'};
-const TYPE_EMOJI={heim:'🏠',auswaerts:'✈️',freundschaft:'🤝',training:'🏃'};
+const TYPE_LABEL={heim:'Heimspiel',auswaerts:'Auswärtsspiel',freundschaft:'Freundschaftsspiel',liga:'Ligaspiel',training:'Training'};
+const TYPE_EMOJI={heim:'🏠',auswaerts:'✈️',freundschaft:'🤝',liga:'🏆',training:'🏃'};
+const CLUBS={ESV:{liga:'RL'},HGA:{liga:'OL'}};
+function isAway(s){return !!s&&s.type==='auswaerts'}
+function matchTitle(s){
+  if(s.type==='training')return 'Training';
+  const own=s.club||'ESV',opp=s.opponent||'Unbekannt';
+  return isAway(s)?opp+' : '+own:own+' : '+opp;
+}
+function finalScore(s){
+  const o=s.shots.filter(x=>x.opponentGoal).length,g=s.shots.filter(x=>!x.opponentGoal&&x.outcome==='goal').length;
+  if(!s.closed&&o+g===0)return '';
+  return isAway(s)?g+':'+o:o+':'+g;
+}
 const SP_TIERS=[
   {min:35,label:'Elite',color:'#3a7ae8',bg:'rgba(58,122,232,0.25)',desc:'Weltklasse'},
   {min:30,label:'Stark',color:'#2f9e6e',bg:'rgba(47,158,110,0.25)',desc:'Überdurchschnittlich'},
@@ -548,7 +587,7 @@ $('btnClock').addEventListener('click',toggleClock);
 // SETUP
 const setupDateEl=$('setupDate'), setupOpponentEl=$('setupOpponent'), opponentField=$('opponentField'), btnStartSession=$('btnStartSession');
 setupDateEl.value=new Date().toISOString().slice(0,10);
-let setupClub='ESV', setupType='heim', keepers=[], nextKId=1;
+let setupClub='ESV', setupType='heim', setupIsLiga=false, setupLiga='RL', keepers=[], nextKId=1;
 let selectedRosterIds=new Set(), rosterGameNumbers={};
 
 // ROSTER PERSISTENCE
@@ -597,8 +636,11 @@ function initRosterForSetup(){
 }
 initRosterForSetup();
 
-document.querySelectorAll('.setup-club-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-club-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupClub=this.dataset.club})});
-document.querySelectorAll('.setup-type-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-type-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupType=this.dataset.type;opponentField.style.display=setupType==='training'?'none':''})});
+document.querySelectorAll('.setup-club-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-club-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupClub=this.dataset.club;setupLiga=CLUBS[setupClub].liga;syncSetupLiga()})});
+document.querySelectorAll('.setup-type-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-type-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupType=this.dataset.type;opponentField.style.display=setupType==='training'?'none':'';$('ligaYesField').style.display=setupType==='training'?'none':'';$('ligaField').style.display=(setupType!=='training'&&setupIsLiga)?'':'none'})});
+function syncSetupLiga(){document.querySelectorAll('.setup-liga-btn').forEach(b=>b.classList.toggle('selected',b.dataset.liga===setupLiga))}
+document.querySelectorAll('.setup-ligayes-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-ligayes-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupIsLiga=this.dataset.yes==='1';$('ligaField').style.display=setupIsLiga?'':'none'})});
+document.querySelectorAll('.setup-liga-btn').forEach(btn=>{btn.addEventListener('click',function(){setupLiga=this.dataset.liga;syncSetupLiga()})});
 $('btnAddKeeper').addEventListener('click',()=>{
   const name=prompt('Name des Torhüters (Vorname Nachname):');
   if(!name||!name.trim())return;
@@ -614,8 +656,8 @@ $('btnAddKeeper').addEventListener('click',()=>{
 btnStartSession.addEventListener('click',()=>{
   if(keepers.length===0){showToast('Bitte mindestens einen Torhüter auswählen','error');return}
   if(currentSession&&state.shots.length>0)saveCurrentSession();
-  const half=Math.max(1,parseInt($('setupHalf').value)||30);
-  currentSession={id:Date.now().toString(),date:setupDateEl.value,club:setupClub,type:setupType,opponent:setupType==='training'?'':(setupOpponentEl.value.trim()||'Unbekannt'),halfLength:half,keepers:keepers.map(k=>({...k})),keeperChanges:[{keeperId:keepers[0].id,minute:0}],shots:[],closed:false};
+  const half=Math.max(1,parseInt($('setupHalf').value)||25);
+  currentSession={id:Date.now().toString(),date:setupDateEl.value,club:setupClub,type:setupType,liga:(setupType!=='training'&&setupIsLiga)?setupLiga:undefined,opponent:setupType==='training'?'':(setupOpponentEl.value.trim()||'Unbekannt'),halfLength:half,keepers:keepers.map(k=>({...k})),keeperChanges:[{keeperId:keepers[0].id,minute:0}],shots:[],closed:false};
   state.shots=[]; fullReset(); gameClock={running:false,minute:0,intervalId:null}; activeKeeperFilter='all';
   state.activeKeeperId=keepers[0].id; analysisMode=false; analysisShots=[]; analysisKeepers=[]; analysisSessions=[];
   $('combinedInfo').style.display='none';
@@ -686,7 +728,7 @@ function editClock(){
 function updateScore(){
   const own=state.shots.filter(s=>s.opponentGoal).length;
   const opp=state.shots.filter(s=>s.outcome==='goal'&&!s.opponentGoal).length;
-  const away=currentSession&&currentSession.type==='auswaerts';
+  const away=isAway(currentSession);
   $('scoreOwn').textContent=away?opp:own;
   $('scoreOpp').textContent=away?own:opp;
 }
@@ -890,7 +932,7 @@ function updateHistory(shots){
     if(sh.opponentGoal)lbl=(currentSession?currentSession.club:'')+' Tor';
     const sl=SHOOTER_LABEL[sh.shooterZone]||sh.shooterZone,tl=ZONE_LABEL[sh.targetZone]||sh.targetZone;
     const mn=sh.gameMinute!==undefined?Math.floor(sh.gameMinute)+1+"'":'';
-    const _away=currentSession&&currentSession.type==='auswaerts';
+    const _away=isAway(currentSession);
     const scoreStr=sh.scoreOwn!==undefined?' · '+(_away?sh.scoreOpp+':'+sh.scoreOwn:sh.scoreOwn+':'+sh.scoreOpp):'';
     return `<div class="history-item ${cls}"><span class="h-icon">${icon}</span><span class="h-info"><strong>${sh.opponentGoal?'—':sl}${v1}${sh.opponentGoal?'':'→'+tl}</strong> ${lbl}${body}</span><span class="h-time">${mn}${scoreStr}</span></div>`;
   }).join('');
@@ -934,26 +976,14 @@ function getActiveKeeperName(){
   }
   return null;
 }
-function getSeasonTypeFilter(){
-  let types;
-  if(analysisMode){
-    if(!analysisSessions.length)return null;
-    types=[...new Set(analysisSessions.map(s=>s.type))];
-  }else{
-    if(!currentSession)return null;
-    types=[currentSession.type];
-  }
-  const normalTypes=['heim','auswaerts'];
-  if(types.every(t=>normalTypes.includes(t)))return{types:normalTypes,suffix:' · Spiele'};
-  if(types.every(t=>t==='freundschaft'))return{types:['freundschaft'],suffix:' · Freundschaft'};
-  if(types.every(t=>t==='training'))return{types:['training'],suffix:' · Training'};
-  return null;
-}
+let seasonClub='all';
+function cycleSeasonClub(){seasonClub={all:'ESV',ESV:'HGA',HGA:'all'}[seasonClub];updateSeasonAverage()}
 function updateSeasonAverage(){
-  const tf=getSeasonTypeFilter();
-  let all=loadSessions().filter(s=>filterClub==='all'||s.club===filterClub);
-  if(tf)all=all.filter(s=>tf.types.includes(s.type));
-  let ts=0,tv=0,label='📅 Saison-Schnitt'+(tf?tf.suffix:'');
+  const bar=$('seasonAvgBar'), lg=loadSessions().filter(s=>s.liga);
+  if(!lg.length){bar.style.display='none';return}
+  const all=lg.filter(s=>seasonClub==='all'||s.club===seasonClub);
+  $('seasonClubBtn').textContent=seasonClub==='all'?'ESV+HGA':seasonClub;
+  let ts=0,tv=0,label='📅 Saison-Schnitt · Liga';
   const selName=getActiveKeeperName();
   if(selName){
     const nmLower=selName.toLowerCase();
@@ -961,26 +991,26 @@ function updateSeasonAverage(){
       const match=(s.keepers||[]).find(k=>keeperName(k).toLowerCase()===nmLower);
       if(match)s.shots.forEach(sh=>{if(!sh.opponentGoal&&sh.keeperId===match.id){ts++;if(sh.outcome==='saved')tv++}});
     });
-    label='📅 Saison-Schnitt'+(tf?tf.suffix:'')+' · '+selName;
+    label+=' · '+selName;
   }else{
     all.forEach(s=>s.shots.forEach(sh=>{if(!sh.opponentGoal){ts++;if(sh.outcome==='saved')tv++}}));
   }
-  const bar=$('seasonAvgBar');
-  if(ts<10){bar.style.display='none';return}
   bar.style.display='';
-  const pct=Math.round(tv/ts*100), cls=classifySP(pct,ts);
   bar.querySelector('.eff-label').textContent=label;
+  const sc=$('seasonClass');
+  if(ts<10){$('seasonPct').textContent='—%';$('seasonPct').style.color='';$('seasonFrac').textContent=tv+'/'+ts;sc.textContent='—';sc.style.background='';sc.style.color='';return}
+  const pct=Math.round(tv/ts*100), cls=classifySP(pct,ts);
   $('seasonPct').textContent=pct+'%';$('seasonPct').style.color=cls.color;
   $('seasonFrac').textContent=tv+'/'+ts;
-  const sc=$('seasonClass');sc.textContent=cls.label;sc.style.background=cls.bg;sc.style.color=cls.color;
+  sc.textContent=cls.label;sc.style.background=cls.bg;sc.style.color=cls.color;
 }
 
 // SESSION FILTER + LIST
 function getFilteredSessions(){
-  const all=loadSessions().reverse();
+  const all=loadSessions().sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(Number(b.id)||0)-(Number(a.id)||0));
   let f=all;
   if(filterClub!=='all')f=f.filter(s=>s.club===filterClub);
-  if(filterType!=='all')f=f.filter(s=>s.type===filterType);
+  if(filterType==='liga')f=f.filter(s=>s.liga);else if(filterType!=='all')f=f.filter(s=>s.type===filterType);
   return f;
 }
 document.querySelectorAll('.s-filter-btn').forEach(btn=>{
@@ -1003,16 +1033,47 @@ function renderSessionList(){
     const saves=s.shots.filter(sh=>sh.outcome==='saved'&&!sh.opponentGoal).length, total=s.shots.filter(sh=>!sh.opponentGoal).length;
     const pct=total>0?Math.round(saves/total*100)+'%':'—%';
     const d=new Date(s.date+'T12:00:00'), dateStr=d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});
-    const opp=s.opponent?' vs. '+s.opponent:'', checked=selectedSessionIds.has(s.id)?'checked':'';
+    const checked=selectedSessionIds.has(s.id)?'checked':'';
     const clubLabel=s.club||'ESV', clubCls=s.club==='HGA'?'hga':'esv';
     let keeperInfo='';
     if(s.keepers&&s.keepers.length>0)keeperInfo=' · '+(s.keepers.length>1?'🧤'+s.keepers.length+' TW':'🧤 #'+s.keepers[0].number);
-    const fOwn=s.shots.filter(sh=>sh.opponentGoal).length,fOpp=s.shots.filter(sh=>!sh.opponentGoal&&sh.outcome==='goal').length;
-    const _isAway=s.type==='auswaerts';
-    const scoreDisp=(fOwn+fOpp>0&&s.closed)?' · '+(_isAway?fOpp+':'+fOwn:fOwn+':'+fOpp):'';
-    const cls=s.closed?'session-item '+s.type+' closed':'session-item '+s.type;
-    return `<div class="${cls}"><input type="checkbox" class="si-cb" ${checked} onchange="onSessionCheck('${s.id}',this.checked)"><span class="si-club ${clubCls}">${clubLabel}</span><span class="si-icon" onclick="viewSession('${s.id}')">${TYPE_EMOJI[s.type]}</span><span class="si-info" onclick="viewSession('${s.id}')"><div class="si-title">${TYPE_LABEL[s.type]}${opp}</div><div class="si-sub">${dateStr}${scoreDisp} · ${total} Shots${keeperInfo}</div></span><span class="si-stat" onclick="viewSession('${s.id}')">${pct}</span></div>`;
+    const sc=s.type==='training'?'':finalScore(s);
+    const typeInfo=(s.liga?'🏆 Ligaspiel '+s.liga+' · ':'')+TYPE_LABEL[s.type];
+    const cls='session-item '+s.type+(s.liga?' liga':'')+(s.closed?' closed':'');
+    return `<div class="${cls}"><input type="checkbox" class="si-cb" ${checked} onchange="onSessionCheck('${s.id}',this.checked)"><span class="si-club ${clubCls}">${clubLabel}</span><span class="si-icon" onclick="viewSession('${s.id}')">${TYPE_EMOJI[s.type]}</span><span class="si-info" onclick="viewSession('${s.id}')"><div class="si-title">${matchTitle(s)}${sc?'  <strong>'+sc+'</strong>':''}</div><div class="si-sub">${typeInfo} · ${dateStr} · ${total} Shots${keeperInfo}</div></span><span class="si-stat" onclick="viewSession('${s.id}')">${pct}</span><button class="si-edit" onclick="openEditSession('${s.id}')" aria-label="Spiel bearbeiten">✏️</button></div>`;
   }).join('');
+}
+
+let editId=null,editState={};
+function openEditSession(id){
+  const x=loadSessions().find(v=>String(v.id)===String(id));if(!x)return;
+  const club=x.club||'ESV';
+  editId=x.id;editState={club,type:(x.type==='freundschaft'?'heim':x.type),isLiga:x.liga?'1':'0',liga:x.liga||CLUBS[club].liga};
+  $('editDate').value=x.date;$('editOpp').value=x.opponent&&x.opponent!=='Unbekannt'?x.opponent:(x.opponent||'');
+  renderEditBtns();$('editModal').style.display='flex';
+}
+function renderEditBtns(){
+  const mk=(k,o)=>o.map(v=>`<button class="setup-type-btn${editState[k]===v[0]?' selected':''}" onclick="setEdit('${k}','${v[0]}')">${v[1]}</button>`).join('');
+  $('editClub').innerHTML=mk('club',[['ESV','ESV'],['HGA','HGA']]);
+  $('editType').innerHTML=mk('type',[['heim','🏠 Heimspiel'],['auswaerts','✈️ Auswärts'],['training','🏃 Training']]);
+  $('editLigaYes').innerHTML=mk('isLiga',[['0','Nein'],['1','🏆 Ja']]);
+  $('editLiga').innerHTML=mk('liga',[['RL','RL'],['OL','OL']]);
+  const t=editState.type;
+  $('editLigaYesF').style.display=t==='training'?'none':'';
+  $('editLigaF').style.display=(t!=='training'&&editState.isLiga==='1')?'':'none';
+  $('editOppF').style.display=t==='training'?'none':'';
+}
+function setEdit(k,v){editState[k]=v;if(k==='club')editState.liga=CLUBS[v].liga;renderEditBtns()}
+function closeEditSession(){$('editModal').style.display='none';editId=null}
+function saveEditSession(){
+  const all=loadSessions(),x=all.find(v=>String(v.id)===String(editId));if(!x){closeEditSession();return}
+  const t=editState.type;
+  const meta={date:$('editDate').value||x.date,club:editState.club,type:t,opponent:t==='training'?'':($('editOpp').value.trim()||'Unbekannt'),venue:undefined,liga:(t!=='training'&&editState.isLiga==='1')?editState.liga:undefined,metaTs:Date.now()};
+  Object.assign(x,meta);
+  saveSessions(all);
+  if(currentSession&&String(currentSession.id)===String(x.id)){Object.assign(currentSession,meta);updateScore();$('btnOppGoal').textContent='Tor '+x.club}
+  closeEditSession();renderSessionList();
+  syncToSupabase(x).then(ok=>{updateSyncStatus(ok);showToast(ok?'✅ Gespeichert':'Lokal gespeichert, Sync folgt',ok?'success':'error')});
 }
 function onSessionCheck(id,checked){if(checked)selectedSessionIds.add(id);else selectedSessionIds.delete(id)}
 function viewSession(id){
@@ -1045,11 +1106,13 @@ $('btnCloseSessions').addEventListener('click',()=>{
 $('btnDeleteSessions').addEventListener('click',()=>{
   if(selectedSessionIds.size===0){showToast('Keine Auswahl','error');return}
   const all=loadSessions(), toDelete=all.filter(s=>selectedSessionIds.has(s.id));
-  const names=toDelete.map(s=>{const d=new Date(s.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});return'• '+d+' '+TYPE_LABEL[s.type]+(s.opponent?' vs. '+s.opponent:'')+(s.closed?' 🔒':'')}).join('\n');
+  const names=toDelete.map(s=>{const d=new Date(s.date+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});return'• '+d+' '+matchTitle(s)+(s.closed?' 🔒':'')}).join('\n');
   const msg=toDelete.length===1?'Dieses Spiel wirklich löschen?\n\n'+names+'\n\nDiese Aktion kann nicht rückgängig gemacht werden.':'Diese '+toDelete.length+' Spiele wirklich löschen?\n\n'+names+'\n\nDiese Aktion kann nicht rückgängig gemacht werden.';
   if(!confirm(msg))return;
   const blockedActive=currentSession&&!currentSession.closed&&state.shots.length>0&&selectedSessionIds.has(currentSession.id);
   const remaining=all.filter(s=>!selectedSessionIds.has(s.id)||(currentSession&&s.id===currentSession.id&&!s.closed&&state.shots.length>0));
+  const removedIds=all.filter(x=>!remaining.includes(x)).map(x=>x.id);
+  saveTombs(loadTombs().concat(removedIds));pushDeleted(removedIds);
   saveSessions(remaining);selectedSessionIds.clear();renderSessionList();
   showToast(blockedActive?'🗑 Gelöscht (aktives Spiel übersprungen)':'🗑 Gelöscht','error');
 });
@@ -1062,7 +1125,7 @@ $('btnCombineSessions').addEventListener('click',()=>{
   selected.forEach(s=>(s.keepers||[]).forEach(k=>{const nm=keeperName(k),key=nm.toLowerCase();if(nm&&!seen.has(key)){seen.add(key);analysisKeepers.push({name:nm,number:k.number})}}));
   analysisMode=true; analysisShots=combined; state.shots=combined; activeKeeperFilter='all';
   renderKeeperFilter(); updateStats();
-  const info=selected.map(s=>{const d=new Date(s.date+'T12:00:00');return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' '+(s.opponent?'vs. '+s.opponent:TYPE_LABEL[s.type])}).join(' · ');
+  const info=selected.map(s=>{const d=new Date(s.date+'T12:00:00');return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' '+matchTitle(s)}).join(' · ');
   $('combinedInfo').textContent='📊 Kombiniert: '+info;
   $('combinedInfo').style.display='block';
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -1335,6 +1398,7 @@ async function startupSync(){
 }
 startupSync();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{r.update()}).catch(()=>{});
+if(window.caches)caches.keys().then(k=>{const v=k.filter(x=>x.indexOf('gk-v')===0).sort().pop();if(v&&$('swVersion'))$('swVersion').textContent=v.replace('gk-','')}).catch(()=>{});
 updateSyncStatus(navigator.onLine);
 window.addEventListener('online',()=>{startupSync()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)startupSync()});
