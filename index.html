@@ -209,7 +209,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 </style></head><body>
 
 <header><h1>GK-Analytics <small>B-Jugend</small></h1><button class="header-btn" id="headerNewGame">+ Neu</button></header>
-<div class="status-bar"><span><span class="dot dot-green"></span>Bereit</span><span id="statusSession">Kein aktives Spiel</span><span id="syncStatus"><span class="dot dot-gray"></span>Offline</span><span id="swVersion" style="color:var(--text-dim);font-size:10px">v20</span><button onclick="manualSync()" style="background:none;border:1px solid var(--border);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer">🔄 Sync</button></div>
+<div class="status-bar"><span><span class="dot dot-green"></span>Bereit</span><span id="statusSession">Kein aktives Spiel</span><span id="syncStatus"><span class="dot dot-gray"></span>Offline</span><span id="swVersion" style="color:var(--text-dim);font-size:10px">v21</span><button onclick="manualSync()" style="background:none;border:1px solid var(--border);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer">🔄 Sync</button></div>
 
 <main>
 <!-- SCREEN 0: SETUP -->
@@ -577,11 +577,12 @@ function startClock(){
   if(gameClock.running)return;
   gameClock.running=true;
   $('btnClock').textContent='⏸️';
-  const halfMax=currentSession?currentSession.halfLength*60:1800;
+  const hl=(currentSession&&currentSession.halfLength)||25, np=(currentSession&&currentSession.periods)||2;
+  const nextStop=(Math.floor(gameClock.minute/hl+1e-6)+1)*hl;
   gameClock.intervalId=setInterval(function(){
     if(!gameClock.running){clearInterval(gameClock.intervalId);gameClock.intervalId=null;return}
     gameClock.minute+=1/60;
-    if(gameClock.minute>=halfMax){gameClock.minute=halfMax;pauseClock();showToast('⏱ Halbzeit!','success')}
+    if(gameClock.minute>=nextStop-1e-6){gameClock.minute=nextStop;pauseClock();showToast(nextStop/hl>=np?'⏱ Spielende!':'⏱ '+(nextStop/hl)+'. '+(np===3?'Abschnitt':'Halbzeit')+' zu Ende','success')}
     updateClockDisplay();
     gameClock.tickCount=(gameClock.tickCount||0)+1;
     if(gameClock.tickCount%5===0)saveCurrentSession();
@@ -1419,7 +1420,7 @@ async function startupSync(){
 }
 startupSync();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{r.update()}).catch(()=>{});
-const APP_VERSION='v20';
+const APP_VERSION='v21';
 (function(){const el=$('swVersion');if(!el)return;el.textContent=APP_VERSION;if(window.caches)caches.keys().then(k=>{const v=k.filter(x=>x.indexOf('gk-v')===0).sort().pop();if(v&&v.slice(3)!==APP_VERSION)el.textContent=APP_VERSION+' (Cache '+v.slice(3)+')'}).catch(()=>{})})();
 updateSyncStatus(navigator.onLine);
 window.addEventListener('online',()=>{startupSync()});
