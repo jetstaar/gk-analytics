@@ -428,15 +428,40 @@ async function syncToSupabase(session){
   }catch(e){console.error('Supabase:',e);return false}
 }
 function updateSyncStatus(ok){const el=$('syncStatus');if(el)el.innerHTML=ok?'<span class="dot dot-green"></span>Synced':'<span class="dot dot-gray"></span>Offline'}
+async function fetchAll(table){
+  let out=[],from=0;
+  for(;;){const{data,error}=await sb.from(table).select('*').range(from,from+999);if(error)throw error;out=out.concat(data||[]);if(!data||data.length<1000)break;from+=1000}
+  return out;
+}
+// Cloud → lokal zusammenführen (Union nach Session-ID und Shot-ID), danach lokal → Cloud
+async function mergeFromCloud(){
+  if(!navigator.onLine||!sb) return {ok:false};
+  try{
+    const cs=await fetchAll('handball_sessions'), csh=await fetchAll('handball_shots');
+    const by={};csh.forEach(sh=>{(by[sh.session_id]=by[sh.session_id]||[]).push({id:sh.id,shooterZone:sh.shooter_zone,targetZone:sh.target_zone,outcome:sh.outcome,opponentGoal:sh.opponent_goal||false,is1v1:sh.is_1v1||false,bodyPart:sh.body_part||null,bodyDetail:sh.body_detail||null,gameMinute:sh.game_minute||0,keeperId:sh.keeper_id||'',timestamp:sh.shot_timestamp})});
+    const all=loadSessions(), activeId=currentSession&&!currentSession.closed?currentSession.id:null;
+    let added=0;
+    cs.forEach(c=>{
+      if(c.id===activeId) return;
+      const loc=all.find(x=>String(x.id)===String(c.id)), cshots=by[c.id]||[];
+      if(!loc){all.push({id:c.id,date:c.date,type:c.type,club:c.club||'ESV',opponent:c.opponent||'',halfLength:c.half_length||30,closed:!!c.closed,keepers:c.keepers||[],keeperChanges:c.keeper_changes||[],shots:cshots,clockMinute:0,clockRunning:false});added++;return}
+      const ids=new Set((loc.shots||[]).map(x=>String(x.id)));
+      cshots.forEach(x=>{if(!ids.has(String(x.id))){loc.shots.push(x);added++}});
+      if(c.closed)loc.closed=true;
+      if((!loc.keepers||!loc.keepers.length)&&c.keepers&&c.keepers.length)loc.keepers=c.keepers;
+    });
+    saveSessions(all);
+    let fail=0;for(const x of all){if(x.id===activeId)continue;if(!(await syncToSupabase(x)))fail++}
+    renderSessionList();
+    return {ok:fail===0,added,total:all.length,fail};
+  }catch(e){console.error('Merge:',e);return {ok:false,error:e}}
+}
 async function manualSync(){
-  const all=loadSessions();
-  if(!all.length){showToast('Keine Spiele zum Synchronisieren','error');return}
   if(!navigator.onLine){showToast('Kein Internet','error');return}
-  showToast('Synchronisiere '+all.length+' Spiele…','');
-  let ok=0,fail=0;
-  for(let i=0;i<all.length;i++){const res=await syncToSupabase(all[i]);if(res)ok++;else fail++}
-  updateSyncStatus(fail===0);
-  showToast(fail===0?'✅ '+ok+' Spiele gesichert':'⚠️ '+ok+' ok · '+fail+' fehlgeschlagen',fail===0?'success':'error');
+  showToast('Synchronisiere…','');
+  const r=await mergeFromCloud();
+  updateSyncStatus(r.ok);
+  showToast(r.ok?'✅ '+r.total+' Spiele abgeglichen'+(r.added?' · '+r.added+' neu aus Cloud':''):'⚠️ Sync fehlgeschlagen'+(r.fail?' ('+r.fail+')':''),r.ok?'success':'error');
 }
 
 let currentSession=null, selectedSessionIds=new Set(), filterClub='all', filterType='all', analysisMode=false, analysisShots=[], analysisKeepers=[], analysisSessions=[], activeKeeperFilter='all', alertZones=new Set();
@@ -1304,28 +1329,14 @@ function exportSessionsCSV(){
 // Startup: wenn localStorage leer → aus Supabase laden; sonst → nach Supabase sichern
 async function startupSync(){
   if(!navigator.onLine||!sb)return;
-  const local=loadSessions();
-  if(local.length===0){
-    // Leer → Daten aus Supabase laden
-    try{
-      const{data:sessions,error}=await sb.from('handball_sessions').select('*').order('date',{ascending:false});
-      if(error||!sessions||sessions.length===0)return;
-      const{data:allShots}=await sb.from('handball_shots').select('*');
-      const shotsBySession={};(allShots||[]).forEach(sh=>{if(!shotsBySession[sh.session_id])shotsBySession[sh.session_id]=[];shotsBySession[sh.session_id].push({id:sh.id,shooterZone:sh.shooter_zone,targetZone:sh.target_zone,outcome:sh.outcome,opponentGoal:sh.opponent_goal||false,is1v1:sh.is_1v1||false,bodyPart:sh.body_part||null,bodyDetail:sh.body_detail||null,gameMinute:sh.game_minute||0,keeperId:sh.keeper_id||'',timestamp:sh.shot_timestamp})});
-      const restored=sessions.map(s=>({id:s.id,date:s.date,type:s.type,club:s.club||'ESV',opponent:s.opponent||'',halfLength:s.half_length||30,closed:!!s.closed,keepers:s.keepers||[],keeperChanges:s.keeper_changes||[],shots:shotsBySession[s.id]||[],clockMinute:0,clockRunning:false}));
-      saveSessions(restored);renderSessionList();
-      showToast('☁️ '+restored.length+' Spiele aus Cloud geladen','success');updateSyncStatus(true);
-    }catch(e){console.error('Restore:',e)}
-  }else{
-    // Daten vorhanden → nach Supabase sichern
-    let synced=0;
-    for(let i=0;i<local.length;i++){const ok=await syncToSupabase(local[i]);if(ok)synced++}
-    if(synced>0)updateSyncStatus(true);
-  }
+  const r=await mergeFromCloud();
+  updateSyncStatus(r.ok);
+  if(r.added)showToast('☁️ '+r.added+' Einträge aus Cloud übernommen','success');
 }
 startupSync();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{r.update()}).catch(()=>{});
 updateSyncStatus(navigator.onLine);
-window.addEventListener('online',()=>{updateSyncStatus(true);loadSessions().forEach((s,i)=>setTimeout(()=>syncToSupabase(s),i*200))});
+window.addEventListener('online',()=>{startupSync()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)startupSync()});
 window.addEventListener('offline',()=>updateSyncStatus(false));
 </script></body></html>
