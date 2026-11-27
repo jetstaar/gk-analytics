@@ -209,7 +209,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 </style></head><body>
 
 <header><h1>GK-Analytics <small>B-Jugend</small></h1><button class="header-btn" id="headerNewGame">+ Neu</button></header>
-<div class="status-bar"><span><span class="dot dot-green"></span>Bereit</span><span id="statusSession">Kein aktives Spiel</span><span id="syncStatus"><span class="dot dot-gray"></span>Offline</span><span id="swVersion" style="color:var(--text-dim);font-size:10px">…</span><button onclick="manualSync()" style="background:none;border:1px solid var(--border);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer">🔄 Sync</button></div>
+<div class="status-bar"><span><span class="dot dot-green"></span>Bereit</span><span id="statusSession">Kein aktives Spiel</span><span id="syncStatus"><span class="dot dot-gray"></span>Offline</span><span id="swVersion" style="color:var(--text-dim);font-size:10px">v21</span><button onclick="manualSync()" style="background:none;border:1px solid var(--border);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer">🔄 Sync</button></div>
 
 <main>
 <!-- SCREEN 0: SETUP -->
@@ -222,6 +222,7 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div class="setup-field" id="ligaYesField"><div class="setup-label">Ligaspiel</div><div class="setup-clubs"><button class="setup-ligayes-btn setup-club-btn selected" data-yes="0">Nein</button><button class="setup-ligayes-btn setup-club-btn" data-yes="1">🏆 Ja</button></div></div>
 <div class="setup-field" id="ligaField" style="display:none"><div class="setup-label">Liga</div><div class="setup-clubs"><button class="setup-liga-btn setup-club-btn selected" data-liga="RL">RL</button><button class="setup-liga-btn setup-club-btn" data-liga="OL">OL</button></div></div>
 <div class="setup-field" id="opponentField"><div class="setup-label">Gegner</div><input type="text" id="setupOpponent" class="setup-input" placeholder="z.B. TSV Musterstadt"/></div>
+<div class="setup-field"><div class="setup-label">Abschnitte</div><div class="setup-clubs"><button class="setup-periods-btn setup-club-btn selected" data-n="2">2 Halbzeiten</button><button class="setup-periods-btn setup-club-btn" data-n="3">3 Abschnitte</button></div></div>
 <div class="setup-field"><div class="setup-label">Halbzeit (Minuten)</div><div class="setup-half"><input type="number" id="setupHalf" class="setup-input" value="25" min="1" max="60"/><span>min</span></div></div>
 <div class="setup-field"><div class="setup-keeper-header"><div class="setup-label">Torhüter</div></div>
 <div id="rosterList" style="margin-bottom:4px"></div>
@@ -425,6 +426,8 @@ main{flex:1;overflow-y:auto;padding:10px 12px 6px;-webkit-overflow-scrolling:tou
 <div class="setup-field"><div class="setup-label">Spieltyp</div><div class="edit-grid" id="editType"></div></div>
 <div class="setup-field" id="editLigaYesF"><div class="setup-label">Ligaspiel</div><div class="edit-grid" id="editLigaYes"></div></div>
 <div class="setup-field" id="editLigaF"><div class="setup-label">Liga</div><div class="edit-grid" id="editLiga"></div></div>
+<div class="setup-field"><div class="setup-label">Abschnitte</div><div class="edit-grid" id="editPeriods"></div></div>
+<div class="setup-field"><div class="setup-label">Halbzeit (Minuten)</div><input type="number" id="editHalf" class="setup-input" min="1" max="60"/></div>
 <div class="setup-field" id="editOppF"><div class="setup-label">Gegner</div><input type="text" id="editOpp" class="setup-input"/></div>
 <div class="edit-grid"><button class="setup-type-btn" onclick="closeEditSession()">Abbrechen</button><button class="setup-type-btn selected" onclick="saveEditSession()">Speichern</button></div>
 </div></div>
@@ -434,7 +437,7 @@ let sb=null; try{sb=supabase.createClient(SB_URL,SB_ANON)}catch(e){}
 async function syncToSupabase(session){
   if(!navigator.onLine||!session) return false;
   try{
-    const{error:sErr}=await sb.from('handball_sessions').upsert({id:session.id,date:session.date,type:session.type,club:session.club,opponent:session.opponent||'',half_length:session.halfLength||30,closed:!!session.closed,keepers:session.keepers||[],keeper_changes:session.keeperChanges||[],liga:session.liga||null,meta_ts:session.metaTs||0},{onConflict:'id'});
+    const{error:sErr}=await sb.from('handball_sessions').upsert({id:session.id,date:session.date,type:session.type,club:session.club,opponent:session.opponent||'',half_length:session.halfLength||30,periods:session.periods||2,closed:!!session.closed,keepers:session.keepers||[],keeper_changes:session.keeperChanges||[],liga:session.liga||null,meta_ts:session.metaTs||0},{onConflict:'id'});
     if(sErr)throw sErr;
     const shots=session.shots.map(s=>({id:s.id,session_id:session.id,shooter_zone:s.shooterZone,target_zone:s.targetZone,outcome:s.outcome,opponent_goal:s.opponentGoal||false,is_1v1:s.is1v1||false,body_part:s.bodyPart||null,body_detail:s.bodyDetail||null,game_minute:s.gameMinute||0,keeper_id:s.keeperId||'',shot_timestamp:s.timestamp||new Date().toISOString()}));
     if(shots.length>0){const{error:shErr}=await sb.from('handball_shots').upsert(shots,{onConflict:'id'});if(shErr)throw shErr}
@@ -469,10 +472,10 @@ async function mergeFromCloud(){
     cs.forEach(c=>{
       if(c.id===activeId||tombs.has(String(c.id))) return;
       const loc=all.find(x=>String(x.id)===String(c.id)), cshots=by[c.id]||[];
-      if(!loc){all.push({id:c.id,date:c.date,type:c.type,club:c.club||'ESV',opponent:c.opponent||'',halfLength:c.half_length||30,closed:!!c.closed,keepers:c.keepers||[],keeperChanges:c.keeper_changes||[],liga:c.liga||undefined,metaTs:c.meta_ts||0,shots:cshots,clockMinute:0,clockRunning:false});added++;return}
+      if(!loc){all.push({id:c.id,date:c.date,type:c.type,club:c.club||'ESV',opponent:c.opponent||'',halfLength:c.half_length||30,periods:c.periods||2,closed:!!c.closed,keepers:c.keepers||[],keeperChanges:c.keeper_changes||[],liga:c.liga||undefined,metaTs:c.meta_ts||0,shots:cshots,clockMinute:0,clockRunning:false});added++;return}
       const ids=new Set((loc.shots||[]).map(x=>String(x.id)));
       cshots.forEach(x=>{if(!ids.has(String(x.id))){loc.shots.push(x);added++}});
-      if((c.meta_ts||0)>(loc.metaTs||0)){loc.date=c.date;loc.type=c.type;loc.club=c.club||loc.club;loc.opponent=c.opponent||'';loc.liga=c.liga||undefined;loc.metaTs=c.meta_ts}
+      if((c.meta_ts||0)>(loc.metaTs||0)){loc.date=c.date;loc.type=c.type;loc.halfLength=c.half_length||loc.halfLength;loc.periods=c.periods||2;loc.club=c.club||loc.club;loc.opponent=c.opponent||'';loc.liga=c.liga||undefined;loc.metaTs=c.meta_ts}
       if(c.closed)loc.closed=true;
       if((!loc.keepers||!loc.keepers.length)&&c.keepers&&c.keepers.length)loc.keepers=c.keepers;
     });
@@ -524,6 +527,14 @@ const SHOOTER_LABEL={'LA':'LA','KL':'KL','KM':'KM','KR':'KR','RA':'RA','HL':'HL'
 const TYPE_LABEL={heim:'Heimspiel',auswaerts:'Auswärtsspiel',freundschaft:'Freundschaftsspiel',liga:'Ligaspiel',training:'Training'};
 const TYPE_EMOJI={heim:'🏠',auswaerts:'✈️',freundschaft:'🤝',liga:'🏆',training:'🏃'};
 const CLUBS={ESV:{liga:'RL'},HGA:{liga:'OL'}};
+function periodInfo(sh,sess){
+  const hl=(sess&&sess.halfLength)||25, n=(sess&&sess.periods)||2, m=sh.gameMinute||0;
+  const p=Math.min(n,Math.max(1,Math.ceil(m/hl-1e-9)));
+  const pos=m-(p-1)*hl;
+  const t=Math.min(2,Math.max(0,Math.ceil(pos/(hl/3)-1e-9)-1));
+  return {p,t,hl,n};
+}
+function sessOfShot(sh){return sh._session||findSessionForShot(sh.id)||currentSession}
 function isAway(s){return !!s&&s.type==='auswaerts'}
 function matchTitle(s){
   if(s.type==='training')return 'Training';
@@ -566,11 +577,12 @@ function startClock(){
   if(gameClock.running)return;
   gameClock.running=true;
   $('btnClock').textContent='⏸️';
-  const halfMax=currentSession?currentSession.halfLength*60:1800;
+  const hl=(currentSession&&currentSession.halfLength)||25, np=(currentSession&&currentSession.periods)||2;
+  const nextStop=(Math.floor(gameClock.minute/hl+1e-6)+1)*hl;
   gameClock.intervalId=setInterval(function(){
     if(!gameClock.running){clearInterval(gameClock.intervalId);gameClock.intervalId=null;return}
     gameClock.minute+=1/60;
-    if(gameClock.minute>=halfMax){gameClock.minute=halfMax;pauseClock();showToast('⏱ Halbzeit!','success')}
+    if(gameClock.minute>=nextStop-1e-6){gameClock.minute=nextStop;pauseClock();showToast(nextStop/hl>=np?'⏱ Spielende!':'⏱ '+(nextStop/hl)+'. '+(np===3?'Abschnitt':'Halbzeit')+' zu Ende','success')}
     updateClockDisplay();
     gameClock.tickCount=(gameClock.tickCount||0)+1;
     if(gameClock.tickCount%5===0)saveCurrentSession();
@@ -587,7 +599,7 @@ $('btnClock').addEventListener('click',toggleClock);
 // SETUP
 const setupDateEl=$('setupDate'), setupOpponentEl=$('setupOpponent'), opponentField=$('opponentField'), btnStartSession=$('btnStartSession');
 setupDateEl.value=new Date().toISOString().slice(0,10);
-let setupClub='ESV', setupType='heim', setupIsLiga=false, setupLiga='RL', keepers=[], nextKId=1;
+let setupClub='ESV', setupType='heim', setupIsLiga=false, setupLiga='RL', setupPeriods=2, keepers=[], nextKId=1;
 let selectedRosterIds=new Set(), rosterGameNumbers={};
 
 // ROSTER PERSISTENCE
@@ -638,6 +650,7 @@ initRosterForSetup();
 
 document.querySelectorAll('.setup-club-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-club-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupClub=this.dataset.club;setupLiga=CLUBS[setupClub].liga;syncSetupLiga()})});
 document.querySelectorAll('.setup-type-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-type-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupType=this.dataset.type;opponentField.style.display=setupType==='training'?'none':'';$('ligaYesField').style.display=setupType==='training'?'none':'';$('ligaField').style.display=(setupType!=='training'&&setupIsLiga)?'':'none'})});
+document.querySelectorAll('.setup-periods-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-periods-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupPeriods=+this.dataset.n})});
 function syncSetupLiga(){document.querySelectorAll('.setup-liga-btn').forEach(b=>b.classList.toggle('selected',b.dataset.liga===setupLiga))}
 document.querySelectorAll('.setup-ligayes-btn').forEach(btn=>{btn.addEventListener('click',function(){document.querySelectorAll('.setup-ligayes-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');setupIsLiga=this.dataset.yes==='1';$('ligaField').style.display=setupIsLiga?'':'none'})});
 document.querySelectorAll('.setup-liga-btn').forEach(btn=>{btn.addEventListener('click',function(){setupLiga=this.dataset.liga;syncSetupLiga()})});
@@ -657,7 +670,7 @@ btnStartSession.addEventListener('click',()=>{
   if(keepers.length===0){showToast('Bitte mindestens einen Torhüter auswählen','error');return}
   if(currentSession&&state.shots.length>0)saveCurrentSession();
   const half=Math.max(1,parseInt($('setupHalf').value)||25);
-  currentSession={id:Date.now().toString(),date:setupDateEl.value,club:setupClub,type:setupType,liga:(setupType!=='training'&&setupIsLiga)?setupLiga:undefined,opponent:setupType==='training'?'':(setupOpponentEl.value.trim()||'Unbekannt'),halfLength:half,keepers:keepers.map(k=>({...k})),keeperChanges:[{keeperId:keepers[0].id,minute:0}],shots:[],closed:false};
+  currentSession={id:Date.now().toString(),date:setupDateEl.value,club:setupClub,type:setupType,liga:(setupType!=='training'&&setupIsLiga)?setupLiga:undefined,opponent:setupType==='training'?'':(setupOpponentEl.value.trim()||'Unbekannt'),halfLength:half,periods:setupPeriods,keepers:keepers.map(k=>({...k})),keeperChanges:[{keeperId:keepers[0].id,minute:0}],shots:[],closed:false};
   state.shots=[]; fullReset(); gameClock={running:false,minute:0,intervalId:null}; activeKeeperFilter='all';
   state.activeKeeperId=keepers[0].id; analysisMode=false; analysisShots=[]; analysisKeepers=[]; analysisSessions=[];
   $('combinedInfo').style.display='none';
@@ -1048,7 +1061,8 @@ let editId=null,editState={};
 function openEditSession(id){
   const x=loadSessions().find(v=>String(v.id)===String(id));if(!x)return;
   const club=x.club||'ESV';
-  editId=x.id;editState={club,type:(x.type==='freundschaft'?'heim':x.type),isLiga:x.liga?'1':'0',liga:x.liga||CLUBS[club].liga};
+  editId=x.id;editState={club,type:(x.type==='freundschaft'?'heim':x.type),isLiga:x.liga?'1':'0',liga:x.liga||CLUBS[club].liga,periods:String(x.periods||2)};
+  $('editHalf').value=x.halfLength||25;
   $('editDate').value=x.date;$('editOpp').value=x.opponent&&x.opponent!=='Unbekannt'?x.opponent:(x.opponent||'');
   renderEditBtns();$('editModal').style.display='flex';
 }
@@ -1057,6 +1071,7 @@ function renderEditBtns(){
   $('editClub').innerHTML=mk('club',[['ESV','ESV'],['HGA','HGA']]);
   $('editType').innerHTML=mk('type',[['heim','🏠 Heimspiel'],['auswaerts','✈️ Auswärts'],['training','🏃 Training']]);
   $('editLigaYes').innerHTML=mk('isLiga',[['0','Nein'],['1','🏆 Ja']]);
+  $('editPeriods').innerHTML=mk('periods',[['2','2 Halbzeiten'],['3','3 Abschnitte']]);
   $('editLiga').innerHTML=mk('liga',[['RL','RL'],['OL','OL']]);
   const t=editState.type;
   $('editLigaYesF').style.display=t==='training'?'none':'';
@@ -1068,7 +1083,7 @@ function closeEditSession(){$('editModal').style.display='none';editId=null}
 function saveEditSession(){
   const all=loadSessions(),x=all.find(v=>String(v.id)===String(editId));if(!x){closeEditSession();return}
   const t=editState.type;
-  const meta={date:$('editDate').value||x.date,club:editState.club,type:t,opponent:t==='training'?'':($('editOpp').value.trim()||'Unbekannt'),venue:undefined,liga:(t!=='training'&&editState.isLiga==='1')?editState.liga:undefined,metaTs:Date.now()};
+  const meta={date:$('editDate').value||x.date,club:editState.club,type:t,opponent:t==='training'?'':($('editOpp').value.trim()||'Unbekannt'),venue:undefined,liga:(t!=='training'&&editState.isLiga==='1')?editState.liga:undefined,halfLength:Math.max(1,parseInt($('editHalf').value)||x.halfLength||25),periods:+editState.periods||2,metaTs:Date.now()};
   Object.assign(x,meta);
   saveSessions(all);
   if(currentSession&&String(currentSession.id)===String(x.id)){Object.assign(currentSession,meta);updateScore();$('btnOppGoal').textContent='Tor '+x.club}
@@ -1170,34 +1185,41 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 // HZ1 vs HZ2 COMPARE
 function renderHZCompare(shots){
   const el=$('hzCompareStats');if(!el)return;
-  const hl=(!analysisMode&&currentSession)?(currentSession.halfLength||30):30;
   const gs=shots.filter(s=>!s.opponentGoal&&s.shooterZone!=='-');
-  const hz1=gs.filter(s=>(s.gameMinute||0)<=hl), hz2=gs.filter(s=>(s.gameMinute||0)>hl);
-  if(hz1.length<3&&hz2.length===0){el.style.display='none';return}
+  let n=2;const grp={};
+  gs.forEach(sh=>{const pi=periodInfo(sh,sessOfShot(sh));n=Math.max(n,pi.n);(grp[pi.p]=grp[pi.p]||[]).push(sh)});
+  const g1=grp[1]||[];
+  if(g1.length<3&&gs.length===g1.length){el.style.display='none';return}
   const st=arr=>{const sv=arr.filter(s=>s.outcome==='saved').length,gl=arr.filter(s=>s.outcome==='goal').length,t=arr.length,p=t>0?Math.round(sv/t*100):null;return{sv,gl,t,p}};
-  const s1=st(hz1),s2=st(hz2);
+  const cols=[];for(let i=1;i<=n;i++)cols.push(st(grp[i]||[]));
   const fmtPct=(s)=>{if(s.p===null)return'<span style="color:var(--text-dim)">—</span>';const c=classifySP(s.p,s.t);return`<span style="color:${c.color};font-weight:800">${s.p}%</span>`};
-  let html='<div class="chart-header" style="margin-top:10px">1. vs 2. Halbzeit</div>';
-  html+='<table class="bp-table"><tr><th style="text-align:left"></th><th>1. HZ</th><th>2. HZ</th></tr>';
-  html+=`<tr><td>Schüsse</td><td>${s1.t}</td><td>${s2.t||'—'}</td></tr>`;
-  html+=`<tr><td>Gehalten</td><td style="color:var(--q-good);font-weight:700">${s1.sv}</td><td style="color:var(--q-good);font-weight:700">${s2.sv||'—'}</td></tr>`;
-  html+=`<tr><td>Tore</td><td style="color:var(--accent);font-weight:700">${s1.gl}</td><td style="color:var(--accent);font-weight:700">${s2.gl||'—'}</td></tr>`;
-  html+=`<tr><td>Quote</td><td>${fmtPct(s1)}</td><td>${s2.t>0?fmtPct(s2):'<span style="color:var(--text-dim)">—</span>'}</td></tr>`;
+  const dash=v=>v||'—';
+  let html='<div class="chart-header" style="margin-top:10px">'+(n===3?'Abschnitte im Vergleich':'1. vs 2. Halbzeit')+'</div>';
+  html+='<table class="bp-table"><tr><th style="text-align:left"></th>'+cols.map((c,i)=>'<th>'+(i+1)+'. '+(n===3?'Abschn.':'HZ')+'</th>').join('')+'</tr>';
+  html+='<tr><td>Schüsse</td>'+cols.map((c,i)=>'<td>'+(i===0?c.t:dash(c.t))+'</td>').join('')+'</tr>';
+  html+='<tr><td>Gehalten</td>'+cols.map((c,i)=>'<td style="color:var(--q-good);font-weight:700">'+(i===0?c.sv:dash(c.sv))+'</td>').join('')+'</tr>';
+  html+='<tr><td>Tore</td>'+cols.map((c,i)=>'<td style="color:var(--accent);font-weight:700">'+(i===0?c.gl:dash(c.gl))+'</td>').join('')+'</tr>';
+  html+='<tr><td>Quote</td>'+cols.map(c=>'<td>'+fmtPct(c)+'</td>').join('')+'</tr>';
   html+='</table>';
   el.innerHTML=html;el.style.display='';
 }
 
-// TIME BLOCK CHART (10-min blocks)
+// TIME BLOCK CHART (je Halbzeit/Abschnitt 3 gleich lange Drittel)
 function renderTimeBlockChart(shots){
   const el=$('timeBlockChart');if(!el)return;
   const gs=shots.filter(s=>!s.opponentGoal&&s.shooterZone!=='-');
-  const maxMin=Math.max(...gs.map(s=>s.gameMinute||0),19);
-  const blocks=[];
-  for(let start=0;start<=maxMin;start+=10){
-    const end=start+10;
-    const bs=gs.filter(s=>(s.gameMinute||0)>=start&&(s.gameMinute||0)<end);
-    if(bs.length>0){const sv=bs.filter(s=>s.outcome==='saved').length;blocks.push({label:`${start+1}-${end}'`,pct:Math.round(sv/bs.length*100),t:bs.length})}
-  }
+  const single=!analysisMode&&currentSession;
+  const g={};
+  gs.forEach(sh=>{
+    const pi=periodInfo(sh,sessOfShot(sh)),k=pi.p*3+pi.t;
+    const o=g[k]=g[k]||{p:pi.p,t:pi.t,hl:pi.hl,sv:0,n:0};
+    o.n++;if(sh.outcome==='saved')o.sv++;
+  });
+  const blocks=Object.keys(g).map(Number).sort((a,b)=>a-b).map(k=>{
+    const o=g[k];
+    const lbl=single?[o.p+'. '+((currentSession.periods||2)===3?'Abschn.':'HZ'),(Math.round((o.p-1)*o.hl+o.t*o.hl/3)+1)+'-'+Math.round((o.p-1)*o.hl+(o.t+1)*o.hl/3)+"'"]:['H'+o.p,(o.t+1)+'/3'];
+    return {label:lbl,pct:Math.round(o.sv/o.n*100),t:o.n};
+  });
   if(blocks.length<2){el.style.display='none';if(chartTimeBlockInstance){chartTimeBlockInstance.destroy();chartTimeBlockInstance=null}return}
   el.innerHTML='<div class="chart-header" style="margin-top:10px">Effizienz im Spielverlauf</div><div class="chart-wrapper" style="max-height:170px"><canvas id="chartTimeBlock"></canvas></div>';
   el.style.display='';
@@ -1277,7 +1299,7 @@ function openHZModal(){
   const half=currentSession?(currentSession.halfLength||30):30;
   const now=gameClock?gameClock.minute:half;
   const inHz2=now>half;
-  const hz1=shots.filter(s=>(s.gameMinute||0)<=half), hz2=shots.filter(s=>(s.gameMinute||0)>half);
+  const hz1=shots.filter(s=>periodInfo(s,sessOfShot(s)).p===1), hz2=shots.filter(s=>periodInfo(s,sessOfShot(s)).p>1);
   const st=arr=>{const sv=arr.filter(s=>s.outcome==='saved').length,t=arr.length,p=t>0?Math.round(sv/t*100):null;return{sv,t,p}};
   const s1=st(hz1),s2=st(hz2);
   const fmt=s=>s.p!==null?s.p+'%<span class="hz-sub"> ('+s.sv+'/'+s.t+')</span>':(s.t===0?'—':''+s.sv+'/'+s.t);
@@ -1359,7 +1381,7 @@ function buildCSVRows(shots){
   const headers='datum;gegner;spieltyp;halbzeit;spielminute;wurfzone;torzone_nr;torzone_label;ergebnis;koerperteil;koerperteil_detail;ist_1v1;torwart_name;trikotnummer;spielstand_heim;spielstand_gast';
   const rows=shots.filter(s=>!s.opponentGoal&&s.shooterZone!=='-').map(s=>{
     const sess=s._session||findSessionForShot(s.id),hl=sess?(sess.halfLength||30):30;
-    const hz=(s.gameMinute||0)<=hl?1:2;
+    const hz=periodInfo(s,sess).p;
     const k=sess?(sess.keepers||[]).find(k=>k.id===s.keeperId):null;
     const kn=s.keeperName||(k?keeperName(k):''),knr=k?k.number:'';
     return [sess?sess.date:'',sess?(sess.opponent||''):'',sess?(TYPE_LABEL[sess.type]||''):'',hz,Math.round(s.gameMinute||0),(SHOOTER_LABEL[s.shooterZone]||s.shooterZone),(s.targetZone||''),(ZONE_LABEL[s.targetZone]||''),(s.outcome==='saved'?'gehalten':'tor'),(s.bodyPart||''),(s.bodyDetail||''),(s.is1v1?'ja':'nein'),kn,knr,(s.scoreOwn!==undefined?s.scoreOwn:''),(s.scoreOpp!==undefined?s.scoreOpp:'')].join(';');
@@ -1398,7 +1420,8 @@ async function startupSync(){
 }
 startupSync();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{r.update()}).catch(()=>{});
-if(window.caches)caches.keys().then(k=>{const v=k.filter(x=>x.indexOf('gk-v')===0).sort().pop();if(v&&$('swVersion'))$('swVersion').textContent=v.replace('gk-','')}).catch(()=>{});
+const APP_VERSION='v21';
+(function(){const el=$('swVersion');if(!el)return;el.textContent=APP_VERSION;if(window.caches)caches.keys().then(k=>{const v=k.filter(x=>x.indexOf('gk-v')===0).sort().pop();if(v&&v.slice(3)!==APP_VERSION)el.textContent=APP_VERSION+' (Cache '+v.slice(3)+')'}).catch(()=>{})})();
 updateSyncStatus(navigator.onLine);
 window.addEventListener('online',()=>{startupSync()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)startupSync()});
