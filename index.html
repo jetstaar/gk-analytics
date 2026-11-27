@@ -442,6 +442,12 @@ async function syncToSupabase(session){
   }catch(e){console.error('Supabase:',e);return false}
 }
 function updateSyncStatus(ok){const el=$('syncStatus');if(el)el.innerHTML=ok?'<span class="dot dot-green"></span>Synced':'<span class="dot dot-gray"></span>Offline'}
+function loadTombs(){try{return JSON.parse(localStorage.getItem('gk_deleted')||'[]')}catch(e){return[]}}
+function saveTombs(a){localStorage.setItem('gk_deleted',JSON.stringify([...new Set(a.map(String))]))}
+async function pushDeleted(ids){
+  if(!ids.length||!sb||!navigator.onLine)return;
+  try{await sb.from('handball_sessions').update({deleted:true,meta_ts:Date.now()}).in('id',ids)}catch(e){console.error('Delete sync:',e)}
+}
 async function fetchAll(table){
   let out=[],from=0;
   for(;;){const{data,error}=await sb.from(table).select('*').range(from,from+999);if(error)throw error;out=out.concat(data||[]);if(!data||data.length<1000)break;from+=1000}
@@ -453,10 +459,15 @@ async function mergeFromCloud(){
   try{
     const cs=await fetchAll('handball_sessions'), csh=await fetchAll('handball_shots');
     const by={};csh.forEach(sh=>{(by[sh.session_id]=by[sh.session_id]||[]).push({id:sh.id,shooterZone:sh.shooter_zone,targetZone:sh.target_zone,outcome:sh.outcome,opponentGoal:sh.opponent_goal||false,is1v1:sh.is_1v1||false,bodyPart:sh.body_part||null,bodyDetail:sh.body_detail||null,gameMinute:sh.game_minute||0,keeperId:sh.keeper_id||'',timestamp:sh.shot_timestamp})});
-    const all=loadSessions(), activeId=currentSession&&!currentSession.closed?currentSession.id:null;
+    let all=loadSessions(), activeId=currentSession&&!currentSession.closed?currentSession.id:null;
+    const tombs=new Set(loadTombs());
+    cs.forEach(c=>{if(c.deleted&&String(c.id)!==String(activeId))tombs.add(String(c.id))});
+    const reMark=cs.filter(c=>!c.deleted&&tombs.has(String(c.id))).map(c=>c.id);
+    all=all.filter(x=>String(x.id)===String(activeId)||!tombs.has(String(x.id)));
+    saveTombs([...tombs]);
     let added=0;
     cs.forEach(c=>{
-      if(c.id===activeId) return;
+      if(c.id===activeId||tombs.has(String(c.id))) return;
       const loc=all.find(x=>String(x.id)===String(c.id)), cshots=by[c.id]||[];
       if(!loc){all.push({id:c.id,date:c.date,type:c.type,club:c.club||'ESV',opponent:c.opponent||'',halfLength:c.half_length||30,closed:!!c.closed,keepers:c.keepers||[],keeperChanges:c.keeper_changes||[],liga:c.liga||undefined,metaTs:c.meta_ts||0,shots:cshots,clockMinute:0,clockRunning:false});added++;return}
       const ids=new Set((loc.shots||[]).map(x=>String(x.id)));
@@ -466,6 +477,7 @@ async function mergeFromCloud(){
       if((!loc.keepers||!loc.keepers.length)&&c.keepers&&c.keepers.length)loc.keepers=c.keepers;
     });
     saveSessions(all);
+    await pushDeleted(reMark);
     let fail=0;for(const x of all){if(x.id===activeId)continue;if(!(await syncToSupabase(x)))fail++}
     renderSessionList();
     return {ok:fail===0,added,total:all.length,fail};
@@ -1099,6 +1111,8 @@ $('btnDeleteSessions').addEventListener('click',()=>{
   if(!confirm(msg))return;
   const blockedActive=currentSession&&!currentSession.closed&&state.shots.length>0&&selectedSessionIds.has(currentSession.id);
   const remaining=all.filter(s=>!selectedSessionIds.has(s.id)||(currentSession&&s.id===currentSession.id&&!s.closed&&state.shots.length>0));
+  const removedIds=all.filter(x=>!remaining.includes(x)).map(x=>x.id);
+  saveTombs(loadTombs().concat(removedIds));pushDeleted(removedIds);
   saveSessions(remaining);selectedSessionIds.clear();renderSessionList();
   showToast(blockedActive?'🗑 Gelöscht (aktives Spiel übersprungen)':'🗑 Gelöscht','error');
 });
